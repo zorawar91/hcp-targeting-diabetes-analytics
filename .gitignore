@@ -1,0 +1,4 @@
+data/raw/
+*.csv
+*.zip
+.DS_Store
