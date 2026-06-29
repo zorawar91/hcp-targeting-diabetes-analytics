@@ -368,6 +368,38 @@ with st.spinner("Loading data…"):
     df      = load_hcp()
     drug_df = load_drug_trends()
 
+# ── SIDEBAR TOGGLE FIX ─────────────────────────────────────────────────────────
+# JS MutationObserver: watches for sidebar collapse and ensures expand button
+# is always visible + styled, regardless of Streamlit version selector changes.
+st.html("""
+<script>
+(function() {
+  function styleToggle() {
+    var selectors = [
+      '[data-testid="collapsedControl"]',
+      '[data-testid="stSidebarCollapsedControl"]',
+      'button[title="Open sidebar"]',
+      'button[aria-label="Open sidebar"]',
+      '[data-testid="stSidebar"] ~ div button'
+    ];
+    selectors.forEach(function(sel) {
+      document.querySelectorAll(sel).forEach(function(el) {
+        el.style.cssText += ';display:flex!important;visibility:visible!important;' +
+          'opacity:1!important;z-index:99999!important;pointer-events:auto!important;' +
+          'background:#003DA5!important;border-radius:0 8px 8px 0!important;' +
+          'min-width:24px!important;cursor:pointer!important;';
+        var svgs = el.querySelectorAll('svg, svg *');
+        svgs.forEach(function(s){ s.style.cssText += ';fill:white!important;color:white!important;'; });
+      });
+    });
+  }
+  styleToggle();
+  var obs = new MutationObserver(styleToggle);
+  obs.observe(document.body, {childList:true, subtree:true, attributes:true});
+})();
+</script>
+""")
+
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
