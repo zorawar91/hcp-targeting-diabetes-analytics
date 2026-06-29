@@ -284,23 +284,15 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── DATABASE ───────────────────────────────────────────────────────────────────
-# Reads from Streamlit secrets (production) or falls back to local defaults.
-# On Streamlit Community Cloud, set secrets in the app dashboard.
-# Locally, create .streamlit/secrets.toml (see secrets.toml.example).
-def _db_config():
-    try:
-        s = st.secrets["postgres"]
-        return dict(host=s["host"], port=int(s.get("port", 5432)),
-                    dbname=s["dbname"], user=s["user"], password=s["password"],
-                    sslmode=s.get("sslmode", "require"))
-    except Exception:
-        # Local development fallback
-        return dict(host="localhost", port=5432, dbname="postgres",
-                    user="postgres", password="newpassword123")
-
+# Production: set DATABASE_URL in Streamlit Cloud secrets dashboard.
+# Local: falls back to localhost PostgreSQL.
 @st.cache_resource(show_spinner=False)
 def get_conn():
-    return psycopg2.connect(**_db_config())
+    try:
+        dsn = st.secrets["DATABASE_URL"]
+    except Exception:
+        dsn = "postgresql://postgres:newpassword123@localhost:5432/postgres"
+    return psycopg2.connect(dsn)
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_hcp():
