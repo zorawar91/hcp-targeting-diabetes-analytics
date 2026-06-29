@@ -825,42 +825,108 @@ breakthrough = filt[
     (filt["volume_decile"] >= 7)
 ].head(3)
 
-if len(at_risk) > 0 or len(breakthrough) > 0:
-    ac1, ac2 = st.columns(2)
-    with ac1:
-        if len(at_risk) > 0:
-            names = ", ".join(f"Dr {r['last_name']}" for _, r in at_risk.iterrows())
-            st.html(f"""
-            <div style="background:#FFF0EF;border-radius:14px;padding:1rem 1.3rem;
-                        border-left:4px solid #FF3B30;margin-bottom:0.5rem">
-              <div style="font-size:0.65rem;font-weight:700;color:#FF3B30;
-                          text-transform:uppercase;letter-spacing:0.1em">
-                ⚠️ At Risk — High Value HCPs with Declining Rx
+# ── Segment pulse for fallback card ───────────────────────────────────────────
+_seg_vc   = filt["segment"].value_counts()
+_hv_n     = _seg_vc.get("High Value",   0)
+_gr_n     = _seg_vc.get("Growth",       0)
+_ma_n     = _seg_vc.get("Maintenance",  0)
+_dp_n     = _seg_vc.get("Deprioritise", 0)
+_total_n  = max(len(filt), 1)
+_top_spec = filt["specialty"].value_counts().index[0] if len(filt) > 0 else "—"
+_top_spec_n = filt["specialty"].value_counts().iloc[0] if len(filt) > 0 else 0
+_kol_n    = int((filt["opinion_leader_payments"] > 0).sum())
+
+ac1, ac2 = st.columns(2)
+with ac1:
+    if len(at_risk) > 0:
+        names = ", ".join(f"Dr {r['last_name']}" for _, r in at_risk.iterrows())
+        st.html(f"""
+        <div style="background:#FFF0EF;border-radius:14px;padding:1rem 1.3rem;
+                    border-left:4px solid #FF3B30;margin-bottom:0.5rem">
+          <div style="font-size:0.65rem;font-weight:700;color:#FF3B30;
+                      text-transform:uppercase;letter-spacing:0.1em">
+            ⚠️ At Risk — High Value HCPs with Declining Rx
+          </div>
+          <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F;margin-top:5px">
+            {len(at_risk)} High Value prescribers showing negative YoY growth
+          </div>
+          <div style="font-size:0.75rem;color:#6E6E73;margin-top:3px">
+            {names} — defend Rx share before competitors move in
+          </div>
+        </div>""")
+    else:
+        # Fallback: segment breakdown pulse
+        st.html(f"""
+        <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.3rem;
+                    border-left:4px solid #003DA5;margin-bottom:0.5rem;
+                    box-shadow:0 1px 6px rgba(0,31,91,0.07)">
+          <div style="font-size:0.65rem;font-weight:700;color:#003DA5;
+                      text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">
+            📊 Territory Segment Pulse
+          </div>
+          <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+            <div style="text-align:center">
+              <div style="font-size:1.3rem;font-weight:700;color:#FF3B30">{_hv_n:,}</div>
+              <div style="font-size:0.6rem;color:#8E8E93;font-weight:600;text-transform:uppercase">High Value</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:1.3rem;font-weight:700;color:#34C759">{_gr_n:,}</div>
+              <div style="font-size:0.6rem;color:#8E8E93;font-weight:600;text-transform:uppercase">Growth</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:1.3rem;font-weight:700;color:#FF9500">{_ma_n:,}</div>
+              <div style="font-size:0.6rem;color:#8E8E93;font-weight:600;text-transform:uppercase">Maintenance</div>
+            </div>
+            <div style="text-align:center">
+              <div style="font-size:1.3rem;font-weight:700;color:#8E8E93">{_dp_n:,}</div>
+              <div style="font-size:0.6rem;color:#8E8E93;font-weight:600;text-transform:uppercase">Deprioritise</div>
+            </div>
+            <div style="border-left:1px solid #E5E5EA;padding-left:14px">
+              <div style="font-size:0.72rem;color:#4B6A96;line-height:1.6">
+                Top specialty: <strong style="color:#001F5B">{_top_spec}</strong>
+                ({_top_spec_n:,} HCPs)<br>
+                ⭐ <strong style="color:#001F5B">{_kol_n}</strong> KOLs / Speakers in view
               </div>
-              <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F;margin-top:5px">
-                {len(at_risk)} High Value prescribers showing negative YoY growth
-              </div>
-              <div style="font-size:0.75rem;color:#6E6E73;margin-top:3px">
-                {names} — defend Rx share before competitors move in
-              </div>
-            </div>""")
-    with ac2:
-        if len(breakthrough) > 0:
-            names2 = ", ".join(f"Dr {r['last_name']}" for _, r in breakthrough.iterrows())
-            st.html(f"""
-            <div style="background:#EDFBF1;border-radius:14px;padding:1rem 1.3rem;
-                        border-left:4px solid #34C759;margin-bottom:0.5rem">
-              <div style="font-size:0.65rem;font-weight:700;color:#1A7A35;
-                          text-transform:uppercase;letter-spacing:0.1em">
-                🚀 About to Break Through — Growth HCPs near Vol D8
-              </div>
-              <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F;margin-top:5px">
-                {len(breakthrough)} Growth HCPs at Vol D7 — one push from High Value
-              </div>
-              <div style="font-size:0.75rem;color:#6E6E73;margin-top:3px">
-                {names2} — prioritise now to convert segment
-              </div>
-            </div>""")
+            </div>
+          </div>
+        </div>""")
+
+with ac2:
+    if len(breakthrough) > 0:
+        names2 = ", ".join(f"Dr {r['last_name']}" for _, r in breakthrough.iterrows())
+        st.html(f"""
+        <div style="background:#EDFBF1;border-radius:14px;padding:1rem 1.3rem;
+                    border-left:4px solid #34C759;margin-bottom:0.5rem">
+          <div style="font-size:0.65rem;font-weight:700;color:#1A7A35;
+                      text-transform:uppercase;letter-spacing:0.1em">
+            🚀 About to Break Through — Growth HCPs near Vol D8
+          </div>
+          <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F;margin-top:5px">
+            {len(breakthrough)} Growth HCPs at Vol D7 — one push from High Value
+          </div>
+          <div style="font-size:0.75rem;color:#6E6E73;margin-top:3px">
+            {names2} — prioritise now to convert segment
+          </div>
+        </div>""")
+    else:
+        # Fallback: actionable split of top two segments
+        _actionable = _hv_n + _gr_n
+        _pct = round(100 * _actionable / _total_n)
+        st.html(f"""
+        <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.3rem;
+                    border-left:4px solid #34C759;margin-bottom:0.5rem;
+                    box-shadow:0 1px 6px rgba(0,31,91,0.07)">
+          <div style="font-size:0.65rem;font-weight:700;color:#1A7A35;
+                      text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px">
+            ✅ Territory Coverage — Actionable HCPs
+          </div>
+          <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F;margin-top:5px">
+            {_actionable:,} of {_total_n:,} HCPs ({_pct}%) are High Value or Growth
+          </div>
+          <div style="font-size:0.75rem;color:#6E6E73;margin-top:3px">
+            {_hv_n:,} to defend · {_gr_n:,} to convert — no breakthrough candidates near D8 yet
+          </div>
+        </div>""")
 
 # ── TODAY'S PRIORITIES ─────────────────────────────────────────────────────────
 st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
