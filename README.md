@@ -110,6 +110,28 @@ Database defaults: `host=localhost port=5432 dbname=postgres user=postgres`
 
 ---
 
+## Prototype scope vs. production CRM
+
+This prototype demonstrates core commercial CRM targeting logic against real public data. The table below maps what is built here against what a full Salesforce Health Cloud / Veeva CRM deployment would deliver.
+
+| Capability | This prototype | Production Salesforce / Veeva |
+|---|---|---|
+| HCP scoring & segmentation | ✅ Composite score, NTILE deciles, 4-tier segmentation | ✅ Same, plus ML re-scoring on activity data |
+| Next Best Action | ✅ Rule-based (segment + specialty + KOL logic) | Einstein NBA — model-scored, channel + message + timing |
+| Call cadence engine | ✅ Segment-driven frequency rules | Veeva CRM auto-scheduling + territory routing |
+| Activity tracking | Simulated (seeded by NPI) | Real-time call logging, CLM, sample management |
+| Account hierarchy | HCPs as flat records | Contacts under Accounts (practice / hospital / IDN) |
+| Territory management | Manual sidebar filter | Territory Management 2.0 — automated HCP-to-rep routing |
+| Alerts | In-app at-risk + breakthrough cards | Push notifications — Slack, email, Veeva mobile |
+| Closed-loop measurement | Not implemented | Pre/post call Rx lift analysis (contacted vs uncontacted cohort) |
+| Journey staging | Segments only | Unaware → Aware → Trialing → Committed → Advocate |
+| Role-based planning | ✅ Rep / Area / Regional / HoS views | Salesforce role hierarchy + visibility rules |
+| KOL identification | ✅ CMS Open Payments | Same + HCP social graph (publications, speaker events) |
+
+> Call activity data in this prototype is simulated — seeded deterministically by NPI for reproducibility. NBA recommendations are rule-based, not ML-driven. In a production environment these would be personalised per HCP interaction history via Einstein.
+
+---
+
 ## Project structure
 
 ```
