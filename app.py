@@ -1373,331 +1373,489 @@ with tab5:
             )
 
 # ──────────────────────────────────────────────────────────────────────────────
-# TAB 6 — REP PLANNER
+# TAB 6 — REP PLANNER (role-aware)
 # ──────────────────────────────────────────────────────────────────────────────
+
+# US regions for Area / Regional views
+US_REGIONS = {
+    "Northeast": ["CT","ME","MA","NH","RI","VT","NY","NJ","PA","DC","MD","DE"],
+    "Southeast": ["AL","AR","FL","GA","KY","LA","MS","NC","SC","TN","VA","WV"],
+    "Midwest":   ["IL","IN","IA","KS","MI","MN","MO","NE","ND","OH","SD","WI"],
+    "Southwest": ["AZ","NM","OK","TX"],
+    "West":      ["AK","CA","CO","HI","ID","MT","NV","OR","UT","WA","WY"],
+}
+
 with tab6:
-    if len(filt) == 0:
-        st.warning("No HCPs match the current filters.")
-    else:
-        plan_view = st.radio(
-            "View:",
-            ["📅 Daily Plan", "🗓️ Weekly Calendar", "📊 Monthly Coverage", "🎯 Quarterly Strategy"],
-            horizontal=True, label_visibility="collapsed"
-        )
-        st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
-        # ── DAILY PLAN ────────────────────────────────────────────────────────
-        if plan_view == "📅 Daily Plan":
-            st.markdown(f'<div class="sec">Today\'s Call Plan — {datetime.now().strftime("%A, %-d %B %Y")}</div>',
-                        unsafe_allow_html=True)
+    # ── Role selector ──────────────────────────────────────────────────────────
+    st.html("""
+    <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.4rem;
+                margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
+      <div style="font-size:0.65rem;font-weight:700;color:#8E8E93;
+                  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem">
+        Select Your Role — planning horizon and geography adapt automatically
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <span style="background:#EBF5FF;color:#0071E3;padding:3px 12px;border-radius:980px;
+                     font-size:0.7rem;font-weight:700;border:1px solid #B3D7FF">
+          👤 Sales Rep → Daily · Weekly · Monthly · 1 state
+        </span>
+        <span style="background:#FFF8ED;color:#CC7700;padding:3px 12px;border-radius:980px;
+                     font-size:0.7rem;font-weight:700;border:1px solid #FFE4B2">
+          👥 Area Manager → Weekly · Monthly · Quarterly · 1 region
+        </span>
+        <span style="background:#F5F0FF;color:#7B2FBE;padding:3px 12px;border-radius:980px;
+                     font-size:0.7rem;font-weight:700;border:1px solid #DDD0FF">
+          🏢 Regional Manager → Monthly · Quarterly · Multi-region
+        </span>
+        <span style="background:#EDFBF1;color:#1A7A35;padding:3px 12px;border-radius:980px;
+                     font-size:0.7rem;font-weight:700;border:1px solid #C3F2D0">
+          🎯 Head of Sales → Quarterly · National
+        </span>
+      </div>
+    </div>""")
 
-            hv   = filt[filt["segment"]=="High Value"].head(2)
-            gr   = filt[filt["segment"]=="Growth"].head(2)
-            kols = filt[filt["opinion_leader_payments"]>0].head(1)
-            eod  = kols if len(kols)>0 else filt[filt["segment"]=="Maintenance"].head(1)
+    role = st.selectbox(
+        "I am a:",
+        ["👤 Sales Rep", "👥 Area Manager", "🏢 Regional Manager", "🎯 Head of Sales"],
+        label_visibility="collapsed"
+    )
+    st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
-            slots = [
-                ("🌅 Morning — 9:00 AM", "Defend Rx share with top prescribers", hv, "#FF3B30"),
-                ("☀️ Afternoon — 1:00 PM", "Convert Growth HCPs — GLP-1 detailing", gr, "#34C759"),
-                ("🌇 End of Day — 4:30 PM", "KOL / Speaker engagement", eod, "#FF9500"),
-            ]
-
-            total_calls = sum(len(s[2]) for s in slots)
-            tc1, tc2, tc3, tc4 = st.columns(4)
-            tc1.metric("Calls Today", f"{total_calls}")
-            tc2.metric("High Value", f"{len(hv)}")
-            tc3.metric("Growth", f"{len(gr)}")
-            tc4.metric("KOL / Speaker", f"{len(eod)}")
-            st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
-
-            for slot_label, slot_desc, slot_df, slot_color in slots:
-                if len(slot_df) == 0:
-                    continue
-                st.html(f"""
-                <div style="margin:8px 0 4px;font-size:0.72rem;font-weight:700;color:{slot_color};
-                            text-transform:uppercase;letter-spacing:0.08em">
-                  {slot_label} &nbsp;·&nbsp; <span style="color:#6E6E73;font-weight:400">{slot_desc}</span>
-                </div>""")
-                scols = st.columns(max(len(slot_df), 1))
-                for col_w, (_, row) in zip(scols, slot_df.iterrows()):
-                    seg    = row.get("segment","")
-                    sc_c   = SEG_COLORS.get(seg,"#8E8E93")
-                    sc_bg  = SEG_BG.get(seg,"#F5F5F7")
-                    status, detail, st_c, st_bg = call_due_status(row)
-                    action = recommended_action(row)
-                    fills  = row.get("fills_2022",0)
-                    cadence= cadence_label(row)
-                    with col_w:
-                        st.html(f"""
-                        <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
-                                    border-left:3px solid {slot_color};
-                                    box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:8px">
-                          <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F">
-                            Dr {row.get('last_name','')}, {str(row.get('first_name',''))[:1]}.
-                            {row.get('credential','') or ''}
-                          </div>
-                          <div style="font-size:0.72rem;color:#6E6E73">{str(row.get('specialty',''))[:32]}</div>
-                          <div style="font-size:0.68rem;color:#8E8E93">
-                            📍 {row.get('city','')}, {state_full(row.get('state',''))}
-                          </div>
-                          <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap">
-                            <span style="background:{sc_bg};color:{sc_c};padding:2px 8px;
-                                         border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
-                            <span style="background:{st_bg};color:{st_c};padding:2px 8px;
-                                         border-radius:980px;font-size:0.63rem;font-weight:700">{status}</span>
-                            <span style="background:#F5F5F7;color:#6E6E73;padding:2px 8px;
-                                         border-radius:980px;font-size:0.63rem">{cadence}</span>
-                          </div>
-                          <div style="font-size:0.72rem;color:#0071E3;font-weight:600">→ {action}</div>
-                          <div style="font-size:0.65rem;color:#AEAEB2;margin-top:4px">
-                            {f'{fills:,.0f}' if pd.notna(fills) else '—'} fills · {detail}
-                          </div>
-                        </div>""")
-
-        # ── WEEKLY CALENDAR ───────────────────────────────────────────────────
-        elif plan_view == "🗓️ Weekly Calendar":
-            st.markdown('<div class="sec">Weekly Call Calendar — Mon to Fri</div>',
-                        unsafe_allow_html=True)
-
-            # Build week dates
-            today     = datetime.now()
-            mon       = today - timedelta(days=today.weekday())
-            week_days = [(mon + timedelta(days=i)) for i in range(5)]
-
-            # Cluster HCPs by city — same city on same day
-            pool = filt.head(50).copy()
-            pool["_status"] = pool.apply(lambda r: call_due_status(r)[0], axis=1)
-            # Prioritise Overdue first, then Due Soon, then segment order
-            order_map = {"Overdue": 0, "Due Soon": 1, "On Track": 2}
-            seg_order = {"High Value": 0, "Growth": 1, "Maintenance": 2, "Deprioritise": 3}
-            pool["_o1"] = pool["_status"].map(order_map).fillna(3)
-            pool["_o2"] = pool["segment"].map(seg_order).fillna(4)
-            pool = pool.sort_values(["_o1","_o2"]).head(25).reset_index(drop=True)
-
-            # Assign 5 per day
-            day_cols = st.columns(5)
-            for d_idx, (day_col, day_dt) in enumerate(zip(day_cols, week_days)):
-                day_hcps = pool.iloc[d_idx*5:(d_idx+1)*5]
-                is_today = day_dt.date() == today.date()
-                with day_col:
-                    st.html(f"""
-                    <div style="background:{'#EBF5FF' if is_today else '#F5F5F7'};
-                                border-radius:12px;padding:8px 10px;margin-bottom:8px;
-                                border:{'2px solid #0071E3' if is_today else '1px solid #E5E5EA'}">
-                      <div style="font-size:0.65rem;font-weight:700;
-                                  color:{'#0071E3' if is_today else '#8E8E93'};
-                                  text-transform:uppercase;letter-spacing:0.08em">
-                        {day_dt.strftime('%A')}{'  ← Today' if is_today else ''}
-                      </div>
-                      <div style="font-size:0.75rem;color:#1D1D1F;font-weight:600">
-                        {day_dt.strftime('%-d %b')} · {len(day_hcps)} calls
-                      </div>
-                    </div>""")
-                    for _, row in day_hcps.iterrows():
-                        seg   = row.get("segment","")
-                        sc_c  = SEG_COLORS.get(seg,"#8E8E93")
-                        sc_bg = SEG_BG.get(seg,"#F5F5F7")
-                        status, detail, st_c, _ = call_due_status(row)
-                        st.html(f"""
-                        <div style="background:#FFFFFF;border-radius:10px;padding:10px 12px;
-                                    margin-bottom:6px;border-left:3px solid {sc_c};
-                                    box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-                          <div style="font-size:0.78rem;font-weight:700;color:#1D1D1F">
-                            Dr {row.get('last_name','')}, {str(row.get('first_name',''))[:1]}.
-                          </div>
-                          <div style="font-size:0.65rem;color:#6E6E73">
-                            {str(row.get('specialty',''))[:24]}
-                          </div>
-                          <div style="font-size:0.63rem;color:#8E8E93">
-                            📍 {row.get('city','')}
-                          </div>
-                          <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
-                            <span style="background:{sc_bg};color:{sc_c};padding:1px 7px;
-                                         border-radius:980px;font-size:0.6rem;font-weight:700">{seg}</span>
-                            <span style="color:{st_c};font-size:0.6rem;font-weight:600">{status}</span>
-                          </div>
-                        </div>""")
-
-        # ── MONTHLY COVERAGE ──────────────────────────────────────────────────
-        elif plan_view == "📊 Monthly Coverage":
-            st.markdown('<div class="sec">Monthly Coverage Tracker</div>', unsafe_allow_html=True)
-
-            total_hcps   = len(filt)
-            # Simulated: HCPs "contacted this month" = those with last call < 30 days
-            contacted = sum(
-                1 for _, r in filt.iterrows()
-                if (datetime.now() - sim_last_call(r.get("npi",0))).days <= 30
-            ) if total_hcps <= 500 else int(total_hcps * 0.38)
-            pct = contacted / total_hcps * 100 if total_hcps > 0 else 0
-            overdue = filt.apply(lambda r: call_due_status(r)[0], axis=1).eq("Overdue").sum() \
-                if total_hcps <= 500 else int(total_hcps * 0.22)
-
-            mc1, mc2, mc3, mc4 = st.columns(4)
-            mc1.metric("Total Territory HCPs", f"{total_hcps:,}")
-            mc2.metric("Contacted This Month", f"{contacted:,}")
-            mc3.metric("Coverage %", f"{pct:.0f}%")
-            mc4.metric("Overdue Calls", f"{overdue:,}")
-
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-            # Coverage by segment
-            seg_cover = []
-            for seg_name, cadence in CALL_CADENCE_DAYS.items():
-                seg_df = filt[filt["segment"]==seg_name]
-                if len(seg_df) == 0:
-                    continue
-                contacted_seg = sum(
-                    1 for _, r in seg_df.head(200).iterrows()
-                    if (datetime.now() - sim_last_call(r.get("npi",0))).days <= cadence
-                )
-                seg_cover.append({
-                    "Segment": seg_name,
-                    "Total": len(seg_df),
-                    "Contacted": contacted_seg,
-                    "Coverage %": round(contacted_seg / len(seg_df) * 100, 0)
-                        if len(seg_df) <= 200 else round(contacted_seg / 200 * 100, 0),
-                    "Target %": 85,
-                })
-            if seg_cover:
-                sc_df = pd.DataFrame(seg_cover)
-                col_cov, col_tgt = st.columns([3,2])
-                with col_cov:
-                    st.markdown('<div class="sec">Coverage by Segment</div>', unsafe_allow_html=True)
-                    fig_cov = px.bar(sc_df, x="Coverage %", y="Segment", orientation="h",
-                                     color="Segment", color_discrete_map=SEG_COLORS,
-                                     text="Coverage %",
-                                     labels={"Coverage %":"Coverage %","Segment":""})
-                    fig_cov.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
-                    fig_cov.add_vline(x=85, line_dash="dot", line_color="#8E8E93",
-                                      annotation_text="85% target", annotation_position="top right")
-                    fig_cov.update_layout(**CHART_LAYOUT, height=240, showlegend=False,
-                                          margin=dict(t=5,b=5,l=5,r=60),
-                                          xaxis=dict(range=[0,110], gridcolor="#F5F5F7"),
-                                          yaxis=dict(gridcolor="#F5F5F7", autorange="reversed"))
-                    st.plotly_chart(fig_cov, use_container_width=True)
-                with col_tgt:
-                    st.markdown('<div class="sec">Coverage Summary</div>', unsafe_allow_html=True)
-                    st.dataframe(sc_df[["Segment","Total","Contacted","Coverage %","Target %"]],
-                                 use_container_width=True, hide_index=True)
-
-            # Overdue list
-            st.markdown('<div class="sec">Overdue Calls — Action Required</div>', unsafe_allow_html=True)
-            overdue_df = filt.head(200).copy()
-            overdue_df["_status"] = overdue_df.apply(lambda r: call_due_status(r)[0], axis=1)
-            overdue_df["_detail"] = overdue_df.apply(lambda r: call_due_status(r)[1], axis=1)
-            overdue_df = overdue_df[overdue_df["_status"]=="Overdue"].head(20)
-            if len(overdue_df) > 0:
-                od = overdue_df[["last_name","first_name","specialty","city","state","segment","_detail"]].copy()
-                od["state"] = od["state"].apply(state_full)
-                od.columns = ["Last","First","Specialty","City","State","Segment","Overdue By"]
-                od.index = range(1, len(od)+1)
-                st.dataframe(od, use_container_width=True, hide_index=False)
-            else:
-                st.success("No overdue calls in the current view.")
-
-        # ── QUARTERLY STRATEGY ────────────────────────────────────────────────
+    # ══════════════════════════════════════════════════════════════════════════
+    # SALES REP — Daily / Weekly / Monthly (single state required)
+    # ══════════════════════════════════════════════════════════════════════════
+    if role == "👤 Sales Rep":
+        if not st_val:
+            st.warning("📍 Select your territory state from the sidebar to generate your personal call plan.")
         else:
-            q = (datetime.now().month - 1) // 3 + 1
-            st.markdown(f'<div class="sec">Q{q} {datetime.now().year} Territory Strategy</div>',
+            rep_views = st.radio("Plan View:", ["📅 Daily Plan","🗓️ Weekly Calendar","📊 Monthly Coverage"],
+                                 horizontal=True, label_visibility="collapsed")
+            st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
+            rep_filt = filt.copy()
+
+            # ── Daily ─────────────────────────────────────────────────────────
+            if rep_views == "📅 Daily Plan":
+                st.markdown('<div class="sec">Today\'s Call Plan — ' + state_full(st_val) + ' Territory · ' + datetime.now().strftime("%A, %-d %B %Y") + '</div>',
+                            unsafe_allow_html=True)
+                hv  = rep_filt[rep_filt["segment"]=="High Value"].head(2)
+                gr  = rep_filt[rep_filt["segment"]=="Growth"].head(2)
+                eod = rep_filt[rep_filt["opinion_leader_payments"]>0].head(1)
+                if len(eod)==0: eod = rep_filt[rep_filt["segment"]=="Maintenance"].head(1)
+
+                m1,m2,m3,m4 = st.columns(4)
+                m1.metric("Calls Today", str(len(hv)+len(gr)+len(eod)))
+                m2.metric("High Value", str(len(hv)))
+                m3.metric("Growth", str(len(gr)))
+                m4.metric("KOL / EOD", str(len(eod)))
+
+                for label, desc, sdf, col in [
+                    ("🌅 Morning 9:00 AM","High Value — defend Rx share",hv,"#FF3B30"),
+                    ("☀️ Afternoon 1:00 PM","Growth HCPs — GLP-1 detailing",gr,"#34C759"),
+                    ("🌇 End of Day 4:30 PM","KOL / Speaker engagement",eod,"#FF9500"),
+                ]:
+                    if len(sdf)==0: continue
+                    st.html(f'''<div style="margin:10px 0 4px;font-size:0.72rem;font-weight:700;
+                        color:{col};text-transform:uppercase;letter-spacing:0.08em">
+                        {label} &nbsp;·&nbsp; <span style="color:#6E6E73;font-weight:400">{desc}</span>
+                        </div>''')
+                    ccols = st.columns(max(len(sdf),1))
+                    for cw,(_, row) in zip(ccols, sdf.iterrows()):
+                        seg=row.get("segment",""); sc_c=SEG_COLORS.get(seg,"#8E8E93")
+                        sc_bg=SEG_BG.get(seg,"#F5F5F7")
+                        status,detail,st_c,st_bg=call_due_status(row)
+                        with cw:
+                            st.html(f'''<div style="background:#FFFFFF;border-radius:14px;
+                                padding:14px 16px;border-left:3px solid {col};
+                                box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:8px">
+                              <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F">
+                                Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
+                                {row.get("credential","") or ""}
+                              </div>
+                              <div style="font-size:0.72rem;color:#6E6E73">{str(row.get("specialty",""))[:30]}</div>
+                              <div style="font-size:0.68rem;color:#8E8E93">📍 {row.get("city","")}</div>
+                              <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap">
+                                <span style="background:{sc_bg};color:{sc_c};padding:2px 8px;
+                                  border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
+                                <span style="background:{st_bg};color:{st_c};padding:2px 8px;
+                                  border-radius:980px;font-size:0.63rem;font-weight:700">{status} · {detail}</span>
+                              </div>
+                              <div style="font-size:0.72rem;color:#0071E3;font-weight:600">
+                                → {recommended_action(row)}
+                              </div>
+                              <div style="font-size:0.65rem;color:#AEAEB2;margin-top:3px">
+                                {cadence_label(row)}
+                              </div>
+                            </div>''')
+
+            # ── Weekly ────────────────────────────────────────────────────────
+            elif rep_views == "🗓️ Weekly Calendar":
+                st.markdown('<div class="sec">Weekly Call Calendar — ' + state_full(st_val) + ' Territory</div>',
+                            unsafe_allow_html=True)
+                today   = datetime.now()
+                mon     = today - timedelta(days=today.weekday())
+                wd      = [(mon+timedelta(days=i)) for i in range(5)]
+                pool    = rep_filt.copy()
+                pool["_o1"] = pool.apply(lambda r: call_due_status(r)[0], axis=1).map(
+                    {"Overdue":0,"Due Soon":1,"On Track":2}).fillna(3)
+                pool["_o2"] = pool["segment"].map(
+                    {"High Value":0,"Growth":1,"Maintenance":2,"Deprioritise":3}).fillna(4)
+                pool = pool.sort_values(["_o1","_o2"]).head(25).reset_index(drop=True)
+
+                dcols = st.columns(5)
+                for d_i,(dc,dt) in enumerate(zip(dcols,wd)):
+                    day_hcps = pool.iloc[d_i*5:(d_i+1)*5]
+                    is_today = dt.date()==today.date()
+                    with dc:
+                        st.html(f'''<div style="background:{"#EBF5FF" if is_today else "#F5F5F7"};
+                            border-radius:12px;padding:8px 10px;margin-bottom:8px;
+                            border:{"2px solid #0071E3" if is_today else "1px solid #E5E5EA"}">
+                          <div style="font-size:0.65rem;font-weight:700;
+                              color:{"#0071E3" if is_today else "#8E8E93"};
+                              text-transform:uppercase;letter-spacing:0.08em">
+                            {dt.strftime("%A")}{"  ← Today" if is_today else ""}
+                          </div>
+                          <div style="font-size:0.75rem;color:#1D1D1F;font-weight:600">
+                            {dt.strftime("%-d %b")} · {len(day_hcps)} calls
+                          </div>
+                        </div>''')
+                        for _,row in day_hcps.iterrows():
+                            seg=row.get("segment",""); sc_c=SEG_COLORS.get(seg,"#8E8E93")
+                            sc_bg=SEG_BG.get(seg,"#F5F5F7")
+                            status,detail,st_c,_=call_due_status(row)
+                            st.html(f'''<div style="background:#FFFFFF;border-radius:10px;
+                                padding:10px 12px;margin-bottom:6px;border-left:3px solid {sc_c};
+                                box-shadow:0 1px 4px rgba(0,0,0,0.05)">
+                              <div style="font-size:0.78rem;font-weight:700;color:#1D1D1F">
+                                Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
+                              </div>
+                              <div style="font-size:0.65rem;color:#6E6E73">{str(row.get("specialty",""))[:22]}</div>
+                              <div style="font-size:0.63rem;color:#8E8E93">📍 {row.get("city","")}</div>
+                              <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
+                                <span style="background:{sc_bg};color:{sc_c};padding:1px 7px;
+                                  border-radius:980px;font-size:0.6rem;font-weight:700">{seg}</span>
+                                <span style="color:{st_c};font-size:0.6rem;font-weight:600">{status}</span>
+                              </div>
+                            </div>''')
+
+            # ── Monthly ───────────────────────────────────────────────────────
+            else:
+                st.markdown('<div class="sec">Monthly Coverage — ' + state_full(st_val) + ' Territory</div>',
+                            unsafe_allow_html=True)
+                total = len(rep_filt)
+                contacted = sum(1 for _,r in rep_filt.head(300).iterrows()
+                                if (datetime.now()-sim_last_call(r.get("npi",0))).days<=30)
+                overdue   = sum(1 for _,r in rep_filt.head(300).iterrows()
+                                if call_due_status(r)[0]=="Overdue")
+                pct = contacted/total*100 if total>0 else 0
+                c1,c2,c3,c4 = st.columns(4)
+                c1.metric("Territory HCPs",    f"{total:,}")
+                c2.metric("Contacted (30d)",    f"{contacted:,}")
+                c3.metric("Coverage %",         f"{pct:.0f}%")
+                c4.metric("Overdue Calls",       f"{overdue:,}")
+
+                seg_cover=[]
+                for sn,cad in CALL_CADENCE_DAYS.items():
+                    sd=rep_filt[rep_filt["segment"]==sn]
+                    if not len(sd): continue
+                    ct=sum(1 for _,r in sd.head(200).iterrows()
+                           if (datetime.now()-sim_last_call(r.get("npi",0))).days<=cad)
+                    seg_cover.append({"Segment":sn,"HCPs":len(sd),"Contacted":ct,
+                                      "Coverage %":round(ct/min(len(sd),200)*100),"Target":85})
+                if seg_cover:
+                    sc_df=pd.DataFrame(seg_cover)
+                    fig_c=px.bar(sc_df,x="Coverage %",y="Segment",orientation="h",
+                                 color="Segment",color_discrete_map=SEG_COLORS,text="Coverage %",
+                                 labels={"Coverage %":"Coverage %","Segment":""})
+                    fig_c.update_traces(texttemplate="%{text:.0f}%",textposition="outside")
+                    fig_c.add_vline(x=85,line_dash="dot",line_color="#8E8E93",
+                                    annotation_text="85% target",annotation_position="top right")
+                    fig_c.update_layout(**CHART_LAYOUT,height=220,showlegend=False,
+                                        margin=dict(t=5,b=5,l=5,r=60),
+                                        xaxis=dict(range=[0,110],gridcolor="#F5F5F7"),
+                                        yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
+                    st.plotly_chart(fig_c,use_container_width=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # AREA MANAGER — Weekly · Monthly · Quarterly (1 region)
+    # ══════════════════════════════════════════════════════════════════════════
+    elif role == "👥 Area Manager":
+        region_sel = st.selectbox("Select your region:",
+                                  list(US_REGIONS.keys()), key="am_region")
+        region_states = US_REGIONS[region_sel]
+        am_filt = df[df["state"].isin(region_states)].copy()
+        if st_val: am_filt = am_filt[am_filt["state"]==st_val]
+        if sp_val: am_filt = am_filt[am_filt["specialty"]==sp_val]
+        if seg_sel: am_filt = am_filt[am_filt["segment"].isin(seg_sel)]
+        am_filt = am_filt[am_filt["targeting_score"]>=min_sc].sort_values(
+            "targeting_score",ascending=False)
+
+        am_views = st.radio("View:", ["🗓️ Weekly Team Overview","📊 Monthly Coverage","🎯 Quarterly Strategy"],
+                            horizontal=True, label_visibility="collapsed")
+
+        a1,a2,a3,a4 = st.columns(4)
+        a1.metric(f"{region_sel} Region HCPs", f"{len(am_filt):,}")
+        a2.metric("High Value",  f"{(am_filt['segment']=='High Value').sum():,}")
+        a3.metric("Growth",      f"{(am_filt['segment']=='Growth').sum():,}")
+        a4.metric("States Covered", str(len(region_states)))
+
+        if am_views == "🗓️ Weekly Team Overview":
+            st.markdown(f'<div class="sec">Weekly State-by-State Snapshot — {region_sel} Region</div>',
                         unsafe_allow_html=True)
+            state_summary=[]
+            for st_code in region_states:
+                sd=am_filt[am_filt["state"]==st_code]
+                if not len(sd): continue
+                ov=sum(1 for _,r in sd.head(100).iterrows() if call_due_status(r)[0]=="Overdue")
+                state_summary.append({
+                    "State": state_full(st_code), "Total HCPs": len(sd),
+                    "High Value": (sd["segment"]=="High Value").sum(),
+                    "Growth":     (sd["segment"]=="Growth").sum(),
+                    "Overdue Calls": ov,
+                    "Avg Score":  round(float(sd["targeting_score"].mean()),3),
+                })
+            if state_summary:
+                ss_df=pd.DataFrame(state_summary).sort_values("High Value",ascending=False)
+                st.dataframe(ss_df,use_container_width=True,hide_index=True)
 
-            # Segment summary
-            seg_counts = filt["segment"].value_counts()
-            total = len(filt)
-            qs1, qs2, qs3, qs4 = st.columns(4)
-            for col_w, seg_n, col_k in zip(
-                [qs1,qs2,qs3,qs4],
-                ["High Value","Growth","Maintenance","Deprioritise"],
-                ["🔴","🟢","🟠","⚫"]
-            ):
-                n = seg_counts.get(seg_n, 0)
-                col_w.metric(f"{col_k} {seg_n}", f"{n:,}", f"{n/total*100:.0f}% of territory")
+            # Top 10 HCPs across region to coach reps on
+            st.markdown(f'<div class="sec">Top 10 Regional Priority HCPs — coaching focus</div>',
+                        unsafe_allow_html=True)
+            top10=am_filt.head(10).copy()
+            top10["State"]=top10["state"].apply(state_full)
+            top10["Status"]=top10.apply(lambda r: f"{call_due_status(r)[0]} · {call_due_status(r)[1]}",axis=1)
+            top10["Action"]=top10.apply(recommended_action,axis=1)
+            disp10=top10[["last_name","first_name","specialty","city","State",
+                          "targeting_score","segment","Status","Action"]].copy()
+            disp10.columns=["Last","First","Specialty","City","State","Score","Segment","Status","Action"]
+            disp10.index=range(1,len(disp10)+1)
+            st.dataframe(disp10,use_container_width=True,hide_index=False)
 
-            st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-            ql, qr = st.columns(2)
+        elif am_views == "📊 Monthly Coverage":
+            st.markdown(f'<div class="sec">Monthly Coverage by State — {region_sel} Region</div>',
+                        unsafe_allow_html=True)
+            cover_rows=[]
+            for st_code in region_states:
+                sd=am_filt[am_filt["state"]==st_code]
+                if not len(sd): continue
+                ct=sum(1 for _,r in sd.head(200).iterrows()
+                       if (datetime.now()-sim_last_call(r.get("npi",0))).days<=30)
+                ov=sum(1 for _,r in sd.head(200).iterrows() if call_due_status(r)[0]=="Overdue")
+                cover_rows.append({
+                    "State":state_full(st_code),"HCPs":len(sd),
+                    "Contacted (30d)":ct,"Coverage %":round(ct/min(len(sd),200)*100),
+                    "Overdue":ov,"Target":85
+                })
+            if cover_rows:
+                cv_df=pd.DataFrame(cover_rows).sort_values("Coverage %")
+                fig_am=px.bar(cv_df,x="Coverage %",y="State",orientation="h",
+                              color="Coverage %",color_continuous_scale=["#FF3B30","#FF9500","#34C759"],
+                              text="Coverage %",labels={"State":"","Coverage %":"Coverage %"})
+                fig_am.update_traces(texttemplate="%{text:.0f}%",textposition="outside")
+                fig_am.add_vline(x=85,line_dash="dot",line_color="#8E8E93",
+                                 annotation_text="85% target",annotation_position="top right")
+                fig_am.update_layout(**CHART_LAYOUT,height=max(250,len(cover_rows)*35),
+                                     coloraxis_showscale=False,showlegend=False,
+                                     margin=dict(t=5,b=5,l=5,r=60),
+                                     xaxis=dict(range=[0,110],gridcolor="#F5F5F7"),
+                                     yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
+                st.plotly_chart(fig_am,use_container_width=True)
+                st.dataframe(cv_df,use_container_width=True,hide_index=True)
 
-            with ql:
-                # Conversion candidates
-                st.markdown('<div class="sec">🚀 Growth → High Value Conversion Targets</div>',
+        else:  # Quarterly
+            q=(datetime.now().month-1)//3+1
+            st.markdown(f'<div class="sec">Q{q} Quarterly Strategy — {region_sel} Region</div>',
+                        unsafe_allow_html=True)
+            seg_c=am_filt["segment"].value_counts()
+            qs1,qs2,qs3,qs4=st.columns(4)
+            for cw,sn,em in zip([qs1,qs2,qs3,qs4],
+                ["High Value","Growth","Maintenance","Deprioritise"],["🔴","🟢","🟠","⚫"]):
+                n=seg_c.get(sn,0); tot=len(am_filt)
+                cw.metric(f"{em} {sn}",f"{n:,}",f"{n/tot*100:.0f}% of region" if tot else "")
+
+            ql2,qr2=st.columns(2)
+            with ql2:
+                st.markdown('<div class="sec">Conversion Targets — Growth → High Value</div>',
                             unsafe_allow_html=True)
-                conv = filt[
-                    (filt["segment"]=="Growth") & (filt["volume_decile"]>=7)
-                ][["last_name","first_name","specialty","city","state",
-                   "volume_decile","growth_decile","targeting_score"]].head(10).copy()
-                conv["state"] = conv["state"].apply(state_full)
-                conv.columns = ["Last","First","Specialty","City","State","Vol D","Growth D","Score"]
-                conv.index = range(1, len(conv)+1)
-                if len(conv):
-                    st.dataframe(conv, use_container_width=True, hide_index=False)
-                else:
-                    st.info("No near-threshold Growth HCPs in current view.")
-
-                # At-risk retention
-                st.markdown('<div class="sec">⚠️ At-Risk Retention List — High Value, Declining</div>',
+                conv=am_filt[(am_filt["segment"]=="Growth")&(am_filt["volume_decile"]>=7)].head(10).copy()
+                conv["State"]=conv["state"].apply(state_full)
+                conv2=conv[["last_name","first_name","specialty","city","State",
+                             "volume_decile","growth_decile","targeting_score"]].copy()
+                conv2.columns=["Last","First","Specialty","City","State","Vol D","Growth D","Score"]
+                conv2.index=range(1,len(conv2)+1)
+                if len(conv2): st.dataframe(conv2,use_container_width=True,hide_index=False)
+                else: st.info("No near-threshold Growth HCPs in this region.")
+            with qr2:
+                st.markdown('<div class="sec">At-Risk HCPs — High Value, Declining Rx</div>',
                             unsafe_allow_html=True)
-                risk = filt[
-                    (filt["segment"]=="High Value") &
-                    (filt["yoy_growth_pct"].notna()) &
-                    (filt["yoy_growth_pct"]<0)
-                ][["last_name","first_name","specialty","state","fills_2022","yoy_growth_pct"]].head(10).copy()
-                risk["state"] = risk["state"].apply(state_full)
-                risk["yoy_growth_pct"] = risk["yoy_growth_pct"].apply(lambda x: f"{x:.1f}%")
-                risk.columns = ["Last","First","Specialty","State","Fills 2022","YoY %"]
-                risk.index = range(1, len(risk)+1)
-                if len(risk):
-                    st.dataframe(risk, use_container_width=True, hide_index=False)
-                else:
-                    st.success("No at-risk High Value HCPs in current view.")
+                risk=am_filt[(am_filt["segment"]=="High Value")&
+                             (am_filt["yoy_growth_pct"].notna())&
+                             (am_filt["yoy_growth_pct"]<0)].head(10).copy()
+                risk["State"]=risk["state"].apply(state_full)
+                risk2=risk[["last_name","first_name","specialty","State",
+                             "fills_2022","yoy_growth_pct"]].copy()
+                risk2["yoy_growth_pct"]=risk2["yoy_growth_pct"].apply(lambda x:f"{x:.1f}%")
+                risk2.columns=["Last","First","Specialty","State","Fills 2022","YoY %"]
+                risk2.index=range(1,len(risk2)+1)
+                if len(risk2): st.dataframe(risk2,use_container_width=True,hide_index=False)
+                else: st.success("No at-risk HCPs in this region.")
 
-            with qr:
-                # KOL engagement plan
-                st.markdown('<div class="sec">⭐ KOL Quarterly Engagement Plan</div>',
-                            unsafe_allow_html=True)
-                kol_q = filt[filt["opinion_leader_payments"]>0].sort_values(
-                    "total_payment_usd", ascending=False).head(8)
-                for _, row in kol_q.iterrows():
-                    pay = float(row.get("total_payment_usd",0) or 0)
-                    seg = row.get("segment","")
-                    sc_c = SEG_COLORS.get(seg,"#8E8E93")
-                    _, detail, _, _ = call_due_status(row)
-                    st.html(f"""
-                    <div style="background:#FFFFFF;border-radius:12px;padding:10px 14px;
-                                margin-bottom:6px;box-shadow:0 1px 6px rgba(0,0,0,0.05);
-                                display:flex;justify-content:space-between;align-items:center">
-                      <div>
-                        <div style="font-size:0.82rem;font-weight:700;color:#1D1D1F">
-                          Dr {row.get('last_name','')}, {str(row.get('first_name',''))[:1]}.
-                        </div>
-                        <div style="font-size:0.68rem;color:#6E6E73">
-                          {str(row.get('specialty',''))[:28]} · {state_full(row.get('state',''))}
-                        </div>
-                        <div style="font-size:0.65rem;color:#0071E3;margin-top:2px">
-                          → Advisory Board / Speaker invitation
-                        </div>
-                      </div>
-                      <div style="text-align:right;flex-shrink:0;margin-left:8px">
-                        <div style="font-size:0.75rem;font-weight:700;color:#FF9500">
-                          ${pay:,.0f}
-                        </div>
-                        <div style="font-size:0.62rem;color:#8E8E93">{detail}</div>
-                        <span style="background:#F5F5F7;color:{sc_c};padding:1px 7px;
-                                     border-radius:980px;font-size:0.6rem;font-weight:700">{seg}</span>
-                      </div>
-                    </div>""")
+    # ══════════════════════════════════════════════════════════════════════════
+    # REGIONAL MANAGER — Monthly · Quarterly (multi-region)
+    # ══════════════════════════════════════════════════════════════════════════
+    elif role == "🏢 Regional Manager":
+        rm_regions = st.multiselect("Select your regions:",
+                                    list(US_REGIONS.keys()),
+                                    default=list(US_REGIONS.keys())[:2],
+                                    key="rm_regions")
+        rm_states  = [s for r in rm_regions for s in US_REGIONS.get(r,[])]
+        rm_filt    = df[df["state"].isin(rm_states)].copy() if rm_states else df.copy()
+        if sp_val: rm_filt = rm_filt[rm_filt["specialty"]==sp_val]
+        if seg_sel: rm_filt= rm_filt[rm_filt["segment"].isin(seg_sel)]
 
-                # Q call targets
-                st.markdown('<div class="sec">📊 Q{} Call Volume Targets</div>'.format(q),
-                            unsafe_allow_html=True)
-                targets = []
-                for seg_n, cadence in CALL_CADENCE_DAYS.items():
-                    n = seg_counts.get(seg_n, 0)
-                    calls_per_q = round(n * (91 / cadence))
-                    targets.append({"Segment": seg_n, "HCPs": n,
-                                    "Calls/Quarter": calls_per_q,
-                                    "Calls/Month": round(calls_per_q/3),
-                                    "Calls/Week": round(calls_per_q/13)})
-                tdf = pd.DataFrame(targets)
-                st.dataframe(tdf, use_container_width=True, hide_index=True)
+        rm_views = st.radio("View:", ["📊 Monthly Region View","🎯 Quarterly Strategy"],
+                            horizontal=True, label_visibility="collapsed")
+
+        r1,r2,r3,r4=st.columns(4)
+        r1.metric("Total HCPs",  f"{len(rm_filt):,}")
+        r2.metric("High Value",  f"{(rm_filt['segment']=='High Value').sum():,}")
+        r3.metric("Regions",     str(len(rm_regions)))
+        r4.metric("States",      str(len(rm_states)))
+
+        if rm_views == "📊 Monthly Region View":
+            st.markdown('<div class="sec">Monthly Performance by Region</div>', unsafe_allow_html=True)
+            region_rows=[]
+            for reg in rm_regions:
+                rstates=US_REGIONS[reg]
+                rdf=rm_filt[rm_filt["state"].isin(rstates)]
+                if not len(rdf): continue
+                ct=sum(1 for _,r in rdf.head(300).iterrows()
+                       if (datetime.now()-sim_last_call(r.get("npi",0))).days<=30)
+                ov=sum(1 for _,r in rdf.head(300).iterrows() if call_due_status(r)[0]=="Overdue")
+                region_rows.append({
+                    "Region":reg,"States":len(rstates),"HCPs":len(rdf),
+                    "High Value":(rdf["segment"]=="High Value").sum(),
+                    "Growth":(rdf["segment"]=="Growth").sum(),
+                    "Contacted (30d)":ct,
+                    "Coverage %":round(ct/min(len(rdf),300)*100),
+                    "Overdue":ov,
+                    "Avg Score":round(float(rdf["targeting_score"].mean()),3),
+                })
+            if region_rows:
+                rdf2=pd.DataFrame(region_rows)
+                fig_rm=px.bar(rdf2,x="Region",y="Coverage %",color="Coverage %",
+                              color_continuous_scale=["#FF3B30","#FF9500","#34C759"],
+                              text="Coverage %",labels={"Region":"","Coverage %":"Coverage %"})
+                fig_rm.update_traces(texttemplate="%{text:.0f}%",textposition="outside")
+                fig_rm.add_hline(y=85,line_dash="dot",line_color="#8E8E93",
+                                 annotation_text="85% target",annotation_position="top right")
+                fig_rm.update_layout(**CHART_LAYOUT,height=280,coloraxis_showscale=False,
+                                     margin=dict(t=5,b=5,l=5,r=20),
+                                     yaxis=dict(range=[0,110],gridcolor="#F5F5F7"),
+                                     xaxis=dict(gridcolor="#F5F5F7"))
+                st.plotly_chart(fig_rm,use_container_width=True)
+                st.dataframe(rdf2,use_container_width=True,hide_index=True)
+
+        else:  # Quarterly
+            q=(datetime.now().month-1)//3+1
+            st.markdown(f'<div class="sec">Q{q} Quarterly Strategy — Multi-Region</div>',
+                        unsafe_allow_html=True)
+            seg_c=rm_filt["segment"].value_counts(); tot=len(rm_filt)
+            sq1,sq2,sq3,sq4=st.columns(4)
+            for cw,sn,em in zip([sq1,sq2,sq3,sq4],
+                ["High Value","Growth","Maintenance","Deprioritise"],["🔴","🟢","🟠","⚫"]):
+                n=seg_c.get(sn,0)
+                cw.metric(f"{em} {sn}",f"{n:,}",f"{n/tot*100:.0f}% of portfolio" if tot else "")
+
+            # Region comparison chart
+            reg_comp=[{"Region":r,"High Value":(rm_filt[rm_filt["state"].isin(US_REGIONS[r])]["segment"]=="High Value").sum(),
+                       "Growth":(rm_filt[rm_filt["state"].isin(US_REGIONS[r])]["segment"]=="Growth").sum(),
+                       "Avg Score":round(float(rm_filt[rm_filt["state"].isin(US_REGIONS[r])]["targeting_score"].mean() if len(rm_filt[rm_filt["state"].isin(US_REGIONS[r])])>0 else 0),3)}
+                      for r in rm_regions]
+            rc_df=pd.DataFrame(reg_comp)
+            fig_rc=px.bar(rc_df,x="Region",y=["High Value","Growth"],barmode="group",
+                          color_discrete_map={"High Value":"#FF3B30","Growth":"#34C759"},
+                          labels={"value":"HCPs","variable":"Segment"})
+            fig_rc.update_layout(**CHART_LAYOUT,height=280,
+                                 margin=dict(t=5,b=5,l=5,r=5),
+                                 xaxis=dict(gridcolor="#F5F5F7"),
+                                 yaxis=dict(gridcolor="#F5F5F7"))
+            st.plotly_chart(fig_rc,use_container_width=True)
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # HEAD OF SALES — Quarterly National View
+    # ══════════════════════════════════════════════════════════════════════════
+    else:
+        q=(datetime.now().month-1)//3+1
+        st.markdown(f'<div class="sec">Q{q} {datetime.now().year} National Portfolio Overview</div>',
+                    unsafe_allow_html=True)
+
+        h1,h2,h3,h4,h5=st.columns(5)
+        h1.metric("National HCPs",  f"{len(df):,}")
+        h2.metric("High Value",     f"{(df['segment']=='High Value').sum():,}")
+        h3.metric("Growth",         f"{(df['segment']=='Growth').sum():,}")
+        h4.metric("KOLs / Speakers",f"{(df['opinion_leader_payments']>0).sum():,}")
+        h5.metric("Avg Score",      f"{df['targeting_score'].mean():.3f}")
+
+        # National segment distribution
+        ncl,ncr=st.columns([2,3])
+        with ncl:
+            seg_n=df["segment"].value_counts().reset_index()
+            seg_n.columns=["Segment","Count"]
+            fig_ns=px.pie(seg_n,names="Segment",values="Count",
+                          color="Segment",color_discrete_map=SEG_COLORS,hole=0.6)
+            fig_ns.update_traces(textposition="outside",textinfo="label+percent",textfont_size=11)
+            fig_ns.update_layout(**CHART_LAYOUT,height=280,showlegend=False,
+                                 margin=dict(t=5,b=5,l=5,r=5))
+            st.plotly_chart(fig_ns,use_container_width=True)
+
+        with ncr:
+            st.markdown('<div class="sec">National Performance by Region</div>',
+                        unsafe_allow_html=True)
+            nat_rows=[]
+            for reg,rstates in US_REGIONS.items():
+                rdf=df[df["state"].isin(rstates)]
+                if not len(rdf): continue
+                nat_rows.append({
+                    "Region":reg,"States":len(rstates),"HCPs":len(rdf),
+                    "High Value":(rdf["segment"]=="High Value").sum(),
+                    "Growth":(rdf["segment"]=="Growth").sum(),
+                    "KOLs":(rdf["opinion_leader_payments"]>0).sum(),
+                    "Avg Score":round(float(rdf["targeting_score"].mean()),3),
+                    "Q Calls Target":round(sum(
+                        len(rdf[rdf["segment"]==sn]) * (91/cd)
+                        for sn,cd in CALL_CADENCE_DAYS.items()
+                    )),
+                })
+            if nat_rows:
+                nr_df=pd.DataFrame(nat_rows)
+                st.dataframe(nr_df,use_container_width=True,hide_index=True)
+
+        # Q call targets by region
+        st.markdown(f'<div class="sec">Q{q} Call Volume Targets by Region & Segment</div>',
+                    unsafe_allow_html=True)
+        tgt_rows=[]
+        for reg,rstates in US_REGIONS.items():
+            rdf=df[df["state"].isin(rstates)]
+            for sn,cd in CALL_CADENCE_DAYS.items():
+                n=len(rdf[rdf["segment"]==sn])
+                if not n: continue
+                calls_q=round(n*(91/cd))
+                tgt_rows.append({"Region":reg,"Segment":sn,"HCPs":n,
+                                 "Calls/Quarter":calls_q,"Calls/Month":round(calls_q/3),
+                                 "Calls/Week":round(calls_q/13)})
+        if tgt_rows:
+            tdf=pd.DataFrame(tgt_rows)
+            fig_tgt=px.bar(tdf,x="Region",y="Calls/Quarter",color="Segment",
+                           color_discrete_map=SEG_COLORS,barmode="stack",
+                           labels={"Calls/Quarter":"Quarterly Calls","Region":""})
+            fig_tgt.update_layout(**CHART_LAYOUT,height=320,
+                                  margin=dict(t=5,b=5,l=5,r=5),
+                                  xaxis=dict(gridcolor="#F5F5F7"),
+                                  yaxis=dict(gridcolor="#F5F5F7"),
+                                  legend=dict(orientation="h",y=-0.2))
+            st.plotly_chart(fig_tgt,use_container_width=True)
+            st.dataframe(tdf,use_container_width=True,hide_index=True)
 
 # ── FOOTER ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
