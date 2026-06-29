@@ -349,6 +349,21 @@ st.markdown("""
     font-weight: 600 !important; font-size: 0.84rem !important;
     width: 100%; padding: 0.6rem 1.4rem !important;
   }
+  /* Sidebar buttons — always visible against navy, not white */
+  .stSidebar .stButton > button {
+    background: #0A3278 !important;
+    color: #E8F0FF !important;
+    border: 1px solid #1A4EA0 !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    font-size: 0.82rem !important;
+    transition: background 0.15s ease !important;
+  }
+  .stSidebar .stButton > button:hover {
+    background: #1A4EA0 !important;
+    color: #FFFFFF !important;
+    border-color: #2A5EB0 !important;
+  }
 
   /* ── Tables ── */
   .stDataFrame {
@@ -535,21 +550,50 @@ with st.sidebar:
     # ── Territory / City filter (Sales Rep only) ──────────────────────────────
     city_val = None
     if role == "Sales Rep" and st_val:
-        cities = sorted(df[df["state"] == st_val]["city"].dropna().unique().tolist())
-        city_options = ["🏙️ All Cities (Full State)"] + cities
-        sel_city = st.selectbox("🗺️ Territory (City)", city_options)
-        city_val = None if sel_city == "🏙️ All Cities (Full State)" else sel_city
-        if city_val:
-            # Show territory code for CRM realism
-            import hashlib
-            tc = int(hashlib.md5(f"{st_val}{city_val}".encode()).hexdigest(),16) % 9000 + 1000
-            st.markdown(f"<div style='font-size:0.62rem;color:#7B9AC0;margin-top:-8px;padding-left:2px'>Territory code: <strong style='color:#E8F0FF'>{st_val}-{tc}</strong></div>", unsafe_allow_html=True)
+        # Hard-assign to Houston — largest HCP market in Texas
+        # Find the stored city name for Houston (CMS data may vary in casing)
+        tx_cities = df[df["state"] == st_val]["city"].dropna()
+        houston_match = [c for c in tx_cities.unique() if str(c).upper() == "HOUSTON"]
+        rep_city_raw = houston_match[0] if houston_match else (
+            df[df["state"] == st_val][df["segment"] == "High Value"]["city"].value_counts().index[0]
+            if len(df[(df["state"] == st_val) & (df["segment"] == "High Value")]) > 0
+            else tx_cities.value_counts().index[0]
+        )
+        city_val = rep_city_raw
+        city_display = str(rep_city_raw).title()
+        import hashlib
+        tc = int(hashlib.md5(f"{st_val}{rep_city_raw}".encode()).hexdigest(),16) % 9000 + 1000
+        st.markdown(f"""
+        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
+          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                      letter-spacing:0.1em;margin-bottom:4px'>Assigned City Territory</div>
+          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 {city_display}, TX</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+            Territory Code: TX-{tc}
+          </div>
+        </div>""", unsafe_allow_html=True)
     elif role not in ("Sales Rep",):
         pass  # state handled above
 
-    specs  = ["All Specialties"] + sorted(df["specialty"].dropna().unique().tolist())
+    # Sort diabetes-core specialties to the top, others alphabetically below
+    CORE_DIABETES_SPECS = [
+        "Internal Medicine","Family Medicine","Endocrinology",
+        "Cardiology","Nephrology","General Practice",
+        "Geriatric Medicine","Preventive Medicine","Obstetrics & Gynecology",
+        "Pediatrics","Nurse Practitioner","Physician Assistant",
+    ]
+    all_specs = sorted(df["specialty"].dropna().unique().tolist())
+    top = [s for s in CORE_DIABETES_SPECS if s in all_specs]
+    rest = [s for s in all_specs if s not in top]
+    specs  = ["All Prescribing Specialties"] + top + (["─────────────"] if rest else []) + rest
     sel_sp = st.selectbox("🏥 Specialty", specs)
-    sp_val = None if sel_sp == "All Specialties" else sel_sp
+    sp_val = None if sel_sp in ("All Prescribing Specialties", "─────────────") else sel_sp
+    st.markdown("""
+    <div style='font-size:0.61rem;color:#7B9AC0;line-height:1.55;margin-top:-6px;padding:6px 2px 4px'>
+      All specialties shown have active diabetes Rx volume in CMS Medicare Part D data.
+      Cardiologists prescribe SGLT-2s for CV benefit; nephrologists prescribe for DKD;
+      internists & GPs handle the majority of T2D volume.
+    </div>""", unsafe_allow_html=True)
 
     seg_sel = st.multiselect("🏷️ Segment",
         ["High Value","Growth","Maintenance","Deprioritise"],
@@ -629,7 +673,7 @@ filt = filt.sort_values("targeting_score", ascending=False).reset_index(drop=Tru
 
 # ── HERO ───────────────────────────────────────────────────────────────────────
 terr_state = state_full(st_val) if st_val else ("·".join(sel_regions) if sel_regions else "National")
-terr_city  = f" · {city_val}" if city_val else ""
+terr_city  = f" · {str(city_val).title()}" if city_val else ""
 terr_spec  = sp_val or "All Specialties"
 st.markdown(f"""
 <div style='background:#FFFFFF;border-radius:16px;padding:1.4rem 1.8rem;
@@ -826,7 +870,7 @@ else:
         sc_bg  = SEG_BG.get(seg, "#F5F5F7")
         name   = f"Dr {row.get('last_name','')}, {str(row.get('first_name',''))[:1]}."
         spec   = str(row.get("specialty",""))[:28]
-        loc    = f"{row.get('city','')}, {state_full(row.get('state',''))}"
+        loc    = f"{str(row.get('city','')).title()}, {state_full(row.get('state',''))}"
         score  = float(row.get("targeting_score", 0))
         action = recommended_action(row)
         kol_mk = " ⭐" if float(row.get("opinion_leader_payments", 0) or 0) > 0 else ""
