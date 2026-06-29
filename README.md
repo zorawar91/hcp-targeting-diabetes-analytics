@@ -1,5 +1,9 @@
 # HCP Targeting & Brand Performance Analytics — Diabetes
 
+[![Live App](https://img.shields.io/badge/Live%20App-Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://hcp-targeting-diabetes-analytics-zoraawar.streamlit.app/)
+
+> **[🚀 Open Live App](https://hcp-targeting-diabetes-analytics-zoraawar.streamlit.app/)**
+
 A production-grade commercial intelligence platform for diabetes portfolio management, built to replicate the core functionality of enterprise HCP targeting tools using open public data.
 
 Built as a portfolio project demonstrating end-to-end data engineering, analytics, and BI skills across SQL, Python, and Streamlit.
@@ -118,6 +122,14 @@ hcp-targeting-diabetes-analytics/
 │   └── etl.py              # CMS data ingestion + scoring pipeline
 └── README.md
 ```
+
+---
+
+## Live demo
+
+**[https://hcp-targeting-diabetes-analytics-zoraawar.streamlit.app/](https://hcp-targeting-diabetes-analytics-zoraawar.streamlit.app/)**
+
+Hosted on Streamlit Community Cloud · Database on Neon (PostgreSQL) · Free tier
 
 ---
 
