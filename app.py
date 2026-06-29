@@ -58,6 +58,14 @@ SEG_BG = {
 
 IQVIA_BLUE = "#003DA5"
 
+US_REGIONS = {
+    "Northeast": ["CT","ME","MA","NH","RI","VT","NY","NJ","PA","DC","MD","DE"],
+    "Southeast": ["AL","AR","FL","GA","KY","LA","MS","NC","SC","TN","VA","WV"],
+    "Midwest":   ["IL","IN","IA","KS","MI","MN","MO","NE","ND","OH","SD","WI"],
+    "Southwest": ["AZ","NM","OK","TX"],
+    "West":      ["AK","CA","CO","HI","ID","MT","NV","OR","UT","WA","WY"],
+}
+
 CHART_LAYOUT = dict(
     paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
     font=dict(color="#1A2140",
@@ -1662,14 +1670,6 @@ with tab5:
 # ──────────────────────────────────────────────────────────────────────────────
 
 # US regions for Area / Regional views
-US_REGIONS = {
-    "Northeast": ["CT","ME","MA","NH","RI","VT","NY","NJ","PA","DC","MD","DE"],
-    "Southeast": ["AL","AR","FL","GA","KY","LA","MS","NC","SC","TN","VA","WV"],
-    "Midwest":   ["IL","IN","IA","KS","MI","MN","MO","NE","ND","OH","SD","WI"],
-    "Southwest": ["AZ","NM","OK","TX"],
-    "West":      ["AK","CA","CO","HI","ID","MT","NV","OR","UT","WA","WY"],
-}
-
 with tab6:
 
     # ── Role selector ──────────────────────────────────────────────────────────
