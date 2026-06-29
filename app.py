@@ -23,89 +23,215 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# ── LIGHT THEME CSS ────────────────────────────────────────────────────────────
+# ── APPLE-INSPIRED CSS ─────────────────────────────────────────────────────────
 st.markdown("""
 <style>
+    /* ── Reset & font ── */
     #MainMenu, footer, header { visibility: hidden; }
+    html, body, [class*="css"] {
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
+                     "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+    }
 
-    .stApp { background: #f1f5f9; }
-    .stSidebar { background: #1e293b !important; }
-    .stSidebar * { color: #e2e8f0 !important; }
+    /* ── Background ── */
+    .stApp { background: #F5F5F7; }
+
+    /* ── Sidebar ── */
+    .stSidebar { background: #1C1C1E !important; border-right: 1px solid #2C2C2E; }
+    .stSidebar * { color: #F5F5F7 !important; }
     .stSidebar .stSelectbox label,
     .stSidebar .stSlider label,
     .stSidebar .stMultiSelect label {
-        color: #94a3b8 !important; font-size: 0.7rem !important;
-        font-weight: 700 !important; text-transform: uppercase !important;
-        letter-spacing: 0.08em !important;
+        color: #8E8E93 !important;
+        font-size: 0.68rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.09em !important;
+    }
+    /* Sidebar dividers */
+    .stSidebar hr { border-color: #2C2C2E !important; margin: 1rem 0 !important; }
+    /* Toggle spacing */
+    .stSidebar [data-testid="stToggle"] {
+        margin-top: 1rem !important;
+        padding: 0.5rem 0 !important;
+        border-top: 1px solid #2C2C2E !important;
+    }
+    .stSidebar [data-testid="stToggle"] label {
+        font-size: 0.78rem !important;
+        font-weight: 500 !important;
+        text-transform: none !important;
+        letter-spacing: 0 !important;
+        color: #F5F5F7 !important;
+    }
+    /* Sidebar select & multi boxes */
+    .stSidebar .stSelectbox > div > div,
+    .stSidebar .stMultiSelect > div > div {
+        background: #2C2C2E !important;
+        border: 1px solid #3A3A3C !important;
+        border-radius: 10px !important;
+        color: #F5F5F7 !important;
     }
 
+    /* ── Hero banner ── */
     .hero {
-        background: linear-gradient(135deg, #1e40af 0%, #2563eb 60%, #3b82f6 100%);
-        border-radius: 14px; padding: 1.8rem 2.5rem; margin-bottom: 1.2rem;
+        background: #FFFFFF;
+        border-radius: 18px;
+        padding: 2rem 2.5rem;
+        margin-bottom: 1.4rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
     }
-    .hero-title { font-size: 1.65rem; font-weight: 800; color: white; margin: 0; letter-spacing: -0.02em; }
-    .hero-sub   { font-size: 0.82rem; color: rgba(255,255,255,0.7); margin-top: 0.35rem; }
-    .hero-tag   {
-        display: inline-block; background: rgba(255,255,255,0.2); color: white;
-        padding: 2px 10px; border-radius: 20px; font-size: 0.68rem;
-        font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
-        margin: 8px 4px 0 0;
+    .hero-title {
+        font-size: 1.6rem; font-weight: 700; color: #1D1D1F;
+        margin: 0; letter-spacing: -0.03em;
+    }
+    .hero-sub {
+        font-size: 0.82rem; color: #6E6E73;
+        margin-top: 0.3rem; font-weight: 400;
+    }
+    .hero-tag {
+        display: inline-block;
+        background: #F5F5F7; color: #1D1D1F;
+        padding: 3px 12px; border-radius: 20px;
+        font-size: 0.67rem; font-weight: 600;
+        letter-spacing: 0.05em; text-transform: uppercase;
+        margin: 10px 4px 0 0;
+        border: 1px solid #E5E5EA;
     }
 
+    /* ── KPI metric cards ── */
     div[data-testid="metric-container"] {
-        background: white; border: 1px solid #e2e8f0;
-        border-radius: 12px; padding: 1rem 1.2rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        background: #FFFFFF;
+        border: none;
+        border-radius: 16px;
+        padding: 1.2rem 1.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     }
-    div[data-testid="metric-container"] label { color: #64748b !important; font-size: 0.75rem !important; }
+    div[data-testid="metric-container"] label {
+        color: #6E6E73 !important;
+        font-size: 0.72rem !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.06em !important;
+    }
     div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-        font-size: 1.9rem !important; font-weight: 800 !important; color: #0f172a !important;
+        font-size: 1.85rem !important;
+        font-weight: 700 !important;
+        color: #1D1D1F !important;
+        letter-spacing: -0.02em !important;
     }
 
+    /* ── Section labels ── */
     .sec {
-        font-size: 0.68rem; font-weight: 700; color: #64748b;
-        text-transform: uppercase; letter-spacing: 0.1em;
-        margin-bottom: 0.7rem; padding-bottom: 0.4rem;
-        border-bottom: 2px solid #e2e8f0;
+        font-size: 0.65rem;
+        font-weight: 700;
+        color: #8E8E93;
+        text-transform: uppercase;
+        letter-spacing: 0.12em;
+        margin-bottom: 0.8rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #E5E5EA;
     }
 
+    /* ── Tabs ── */
     .stTabs [data-baseweb="tab-list"] {
-        background: white; border-radius: 10px;
-        padding: 4px; gap: 4px; border: 1px solid #e2e8f0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 1rem;
+        background: #E5E5EA;
+        border-radius: 12px;
+        padding: 3px;
+        gap: 2px;
+        border: none;
+        box-shadow: none;
+        margin-bottom: 1.2rem;
     }
     .stTabs [data-baseweb="tab"] {
-        background: transparent; color: #64748b;
-        border-radius: 8px; font-weight: 600; font-size: 0.85rem;
+        background: transparent;
+        color: #6E6E73;
+        border-radius: 10px;
+        font-weight: 500;
+        font-size: 0.84rem;
+        padding: 0.5rem 1rem;
+        letter-spacing: -0.01em;
     }
-    .stTabs [aria-selected="true"] { background: #2563eb !important; color: white !important; }
-
-    .card {
-        background: white; border: 1px solid #e2e8f0;
-        border-radius: 12px; padding: 1.2rem;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.06); margin-bottom: 0.8rem;
+    .stTabs [aria-selected="true"] {
+        background: #FFFFFF !important;
+        color: #1D1D1F !important;
+        font-weight: 600 !important;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.12) !important;
     }
 
+    /* ── Insight box ── */
     .insight {
-        background: #eff6ff; border: 1px solid #bfdbfe;
-        border-left: 4px solid #2563eb; border-radius: 8px;
-        padding: 0.9rem 1.1rem; font-size: 0.82rem;
-        color: #1e40af; line-height: 1.6; margin-top: 0.8rem;
+        background: #EBF5FB;
+        border: none;
+        border-left: 3px solid #0071E3;
+        border-radius: 12px;
+        padding: 1rem 1.2rem;
+        font-size: 0.82rem;
+        color: #0051A2;
+        line-height: 1.65;
+        margin-top: 1rem;
     }
-    .insight strong { color: #1e3a8a; }
+    .insight strong { color: #003D7A; }
 
+    /* ── Download button ── */
     .stDownloadButton > button {
-        background: #2563eb !important; color: white !important;
-        border: none !important; border-radius: 8px !important;
-        font-weight: 600 !important; width: 100%; padding: 0.55rem !important;
+        background: #0071E3 !important;
+        color: white !important;
+        border: none !important;
+        border-radius: 980px !important;
+        font-weight: 600 !important;
+        font-size: 0.84rem !important;
+        width: 100%;
+        padding: 0.6rem 1.2rem !important;
+        letter-spacing: -0.01em !important;
+        transition: background 0.2s !important;
+    }
+    .stDownloadButton > button:hover {
+        background: #0077ED !important;
     }
 
-    .stDataFrame { border-radius: 10px !important; border: 1px solid #e2e8f0 !important; }
+    /* ── Data table ── */
+    .stDataFrame {
+        border-radius: 14px !important;
+        border: none !important;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+        overflow: hidden !important;
+    }
 
+    /* ── Profile badges ── */
     .badge {
-        display: inline-block; padding: 3px 10px; border-radius: 20px;
-        font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
-        margin-right: 4px; margin-top: 4px;
+        display: inline-block;
+        padding: 3px 11px;
+        border-radius: 980px;
+        font-size: 0.68rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        margin-right: 5px;
+        margin-top: 5px;
+    }
+
+    /* ── General cards ── */
+    .card {
+        background: #FFFFFF;
+        border: none;
+        border-radius: 18px;
+        padding: 1.4rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        margin-bottom: 1rem;
+    }
+
+    /* ── Slider ── */
+    .stSidebar [data-testid="stSlider"] {
+        padding-bottom: 0.75rem !important;
+    }
+
+    /* ── Selectbox spacing ── */
+    .stSidebar [data-testid="stSelectbox"] {
+        margin-bottom: 0.25rem !important;
+    }
+
+    /* ── Multiselect ── */
+    .stSidebar [data-testid="stMultiSelect"] {
+        margin-bottom: 0.25rem !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -115,15 +241,19 @@ DB = dict(host="localhost", port=5432, dbname="postgres",
           user="postgres", password="newpassword123")
 
 SEG_COLORS = {
-    "High Value":   "#dc2626",
-    "Growth":       "#16a34a",
-    "Maintenance":  "#d97706",
-    "Deprioritise": "#94a3b8",
+    "High Value":   "#FF3B30",   # Apple red
+    "Growth":       "#34C759",   # Apple green
+    "Maintenance":  "#FF9500",   # Apple orange
+    "Deprioritise": "#8E8E93",   # Apple gray
 }
 
+APPLE_BLUE = "#0071E3"
+
 CHART_LAYOUT = dict(
-    paper_bgcolor="white", plot_bgcolor="white",
-    font=dict(color="#0f172a", family="Inter, sans-serif"),
+    paper_bgcolor="#FFFFFF",
+    plot_bgcolor="#FFFFFF",
+    font=dict(color="#1D1D1F",
+              family='-apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif'),
 )
 
 # ── HELPER FUNCTIONS ───────────────────────────────────────────────────────────
@@ -219,10 +349,13 @@ with st.spinner("Loading data…"):
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("""
-    <div style='text-align:center;padding:1.2rem 0 0.8rem'>
-      <div style='font-size:1.8rem'>🎯</div>
-      <div style='font-size:1rem;font-weight:800;color:white;margin-top:4px'>HCP Intelligence</div>
-      <div style='font-size:0.72rem;color:#64748b'>Diabetes Portfolio</div>
+    <div style='text-align:center;padding:1.4rem 0 1rem'>
+      <div style='width:48px;height:48px;background:#0071E3;border-radius:14px;
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:1.4rem;margin:0 auto'>🎯</div>
+      <div style='font-size:0.95rem;font-weight:700;color:#F5F5F7;margin-top:10px;
+                  letter-spacing:-0.01em'>HCP Intelligence</div>
+      <div style='font-size:0.7rem;color:#8E8E93;margin-top:2px;font-weight:400'>Diabetes Portfolio</div>
     </div>""", unsafe_allow_html=True)
     st.markdown("---")
 
@@ -243,12 +376,14 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("""
-    <div style='font-size:0.68rem;color:#475569;line-height:1.9'>
-      <b style='color:#94a3b8'>Data Sources</b><br>
+    <div style='font-size:0.67rem;color:#636366;line-height:2;padding:0.25rem 0'>
+      <div style='color:#8E8E93;font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.1em;margin-bottom:0.4rem'>Data Sources</div>
       CMS Medicare Part D 2021–22<br>
       CMS Open Payments 2021–22<br>
-      NPPES NPI Registry 2026<br><br>
-      <b style='color:#94a3b8'>Pipeline</b><br>
+      NPPES NPI Registry 2026
+      <div style='color:#8E8E93;font-size:0.6rem;font-weight:700;text-transform:uppercase;
+                  letter-spacing:0.1em;margin:0.8rem 0 0.4rem'>Pipeline</div>
       83M+ rows · PostgreSQL<br>
       227,455 HCPs scored
     </div>""", unsafe_allow_html=True)
@@ -267,8 +402,15 @@ filt.index += 1
 terr = f"{st_val or 'National'} · {sp_val or 'All Specialties'}"
 st.markdown(f"""
 <div class="hero">
-  <div class="hero-title">🎯 HCP Targeting & Brand Performance Analytics</div>
-  <div class="hero-sub">Diabetes Portfolio Intelligence Platform &nbsp;·&nbsp; {terr} &nbsp;·&nbsp; {datetime.now().strftime('%d %B %Y')}</div>
+  <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:0.5rem">
+    <div style="width:36px;height:36px;background:#0071E3;border-radius:10px;
+                display:flex;align-items:center;justify-content:center;
+                font-size:1.1rem;flex-shrink:0">🎯</div>
+    <div>
+      <div class="hero-title">HCP Targeting & Brand Performance Analytics</div>
+      <div class="hero-sub">{terr} &nbsp;·&nbsp; {datetime.now().strftime('%d %B %Y')}</div>
+    </div>
+  </div>
   <div>
     <span class="hero-tag">PostgreSQL</span>
     <span class="hero-tag">227K HCPs</span>
@@ -372,19 +514,19 @@ with tab1:
                              labels={"targeting_score": "Score", "segment": "Segment"})
         fig_h.update_layout(**CHART_LAYOUT, height=200, showlegend=False,
                             margin=dict(t=5,b=5,l=5,r=5),
-                            xaxis=dict(gridcolor="#f1f5f9"),
-                            yaxis=dict(gridcolor="#f1f5f9"))
+                            xaxis=dict(gridcolor="#F5F5F7"),
+                            yaxis=dict(gridcolor="#F5F5F7"))
         st.plotly_chart(fig_h, use_container_width=True)
 
         st.markdown('<div class="sec">Top Specialties</div>', unsafe_allow_html=True)
         ts = filt.groupby("specialty").size().reset_index(name="Count").nlargest(8, "Count")
         fig_ts = px.bar(ts, x="Count", y="specialty", orientation="h",
-                        color="Count", color_continuous_scale=["#bfdbfe","#1d4ed8"],
+                        color="Count", color_continuous_scale=["#D1E8FF","#0071E3"],
                         labels={"specialty": "", "Count": "HCPs"})
         fig_ts.update_layout(**CHART_LAYOUT, height=260, coloraxis_showscale=False,
                              margin=dict(t=5,b=5,l=5,r=5),
-                             xaxis=dict(gridcolor="#f1f5f9"),
-                             yaxis=dict(gridcolor="#f1f5f9"))
+                             xaxis=dict(gridcolor="#F5F5F7"),
+                             yaxis=dict(gridcolor="#F5F5F7"))
         st.plotly_chart(fig_ts, use_container_width=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -397,13 +539,13 @@ with tab2:
         st.markdown('<div class="sec">Drug Class Rx Trends (2021 → 2022)</div>', unsafe_allow_html=True)
         fig_tr = px.line(drug_df, x="year", y="total_fills", color="drug_class",
                          markers=True, line_shape="spline",
-                         color_discrete_sequence=["#2563eb","#16a34a","#d97706","#dc2626","#7c3aed"],
+                         color_discrete_sequence=["#0071E3","#34C759","#FF9500","#FF3B30","#BF5AF2"],
                          labels={"total_fills": "Total Rx Fills", "drug_class": "Drug Class", "year": "Year"})
         fig_tr.update_traces(line_width=3, marker_size=12)
         fig_tr.update_layout(**CHART_LAYOUT, height=360,
                              margin=dict(t=5,b=5,l=5,r=5),
-                             xaxis=dict(tickvals=[2021, 2022], gridcolor="#f1f5f9"),
-                             yaxis=dict(gridcolor="#f1f5f9"),
+                             xaxis=dict(tickvals=[2021, 2022], gridcolor="#F5F5F7"),
+                             yaxis=dict(gridcolor="#F5F5F7"),
                              legend=dict(orientation="h", y=-0.18))
         st.plotly_chart(fig_tr, use_container_width=True)
 
@@ -420,7 +562,7 @@ with tab2:
         s22 = drug_df[drug_df["year"] == 2022].groupby("drug_class")["total_fills"].sum().reset_index()
         s22.columns = ["Drug Class", "Fills"]
         fig_pie = px.pie(s22, names="Drug Class", values="Fills",
-                         color_discrete_sequence=["#2563eb","#16a34a","#d97706","#dc2626","#7c3aed"],
+                         color_discrete_sequence=["#0071E3","#34C759","#FF9500","#FF3B30","#BF5AF2"],
                          hole=0.5)
         fig_pie.update_traces(textposition="outside", textinfo="percent+label", textfont_size=10)
         fig_pie.update_layout(**CHART_LAYOUT, height=280, showlegend=False, margin=dict(t=5,b=5,l=5,r=5))
@@ -443,13 +585,13 @@ with tab2:
           .reset_index().dropna().query("n >= 50").nlargest(20, "avg_growth"))
     fig_sg = px.bar(sg, x="avg_growth", y="specialty", orientation="h",
                     text="avg_growth", color="avg_growth",
-                    color_continuous_scale=["#bfdbfe","#1d4ed8"],
+                    color_continuous_scale=["#D1E8FF","#0071E3"],
                     labels={"avg_growth": "Avg YoY Growth %", "specialty": ""})
     fig_sg.update_traces(texttemplate="%{text:.1f}%", textposition="outside")
     fig_sg.update_layout(**CHART_LAYOUT, height=440, coloraxis_showscale=False,
                          margin=dict(t=5, b=5, l=5, r=80),
-                         xaxis=dict(gridcolor="#f1f5f9"),
-                         yaxis=dict(autorange="reversed", gridcolor="#f1f5f9"))
+                         xaxis=dict(gridcolor="#F5F5F7"),
+                         yaxis=dict(autorange="reversed", gridcolor="#F5F5F7"))
     st.plotly_chart(fig_sg, use_container_width=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -482,7 +624,7 @@ with tab3:
 
     fig_map = px.choropleth(
         sa, locations="state", locationmode="USA-states",
-        color=mcol, scope="usa", color_continuous_scale="Blues",
+        color=mcol, scope="usa", color_continuous_scale=["#D1E8FF","#0071E3"],
         hover_name="state",
         hover_data={"high_value":True,"growth":True,"total_hcps":True,"avg_score":":.3f","state":False},
         labels={"high_value":"High Value","growth":"Growth",
@@ -563,13 +705,13 @@ with tab4:
         fig_kol = px.bar(ksp, x="total_pay", y="specialty",
                          orientation="h", text="total_pay",
                          color="total_pay",
-                         color_continuous_scale=["#bfdbfe","#1d4ed8"],
+                         color_continuous_scale=["#D1E8FF","#0071E3"],
                          labels={"total_pay": "Total Payments ($)", "specialty": ""})
         fig_kol.update_traces(texttemplate="$%{text:,.0f}", textposition="outside")
         fig_kol.update_layout(**CHART_LAYOUT, height=420,
                               coloraxis_showscale=False, margin=dict(t=5,b=5,l=5,r=120),
-                              xaxis=dict(gridcolor="#f1f5f9"),
-                              yaxis=dict(autorange="reversed", gridcolor="#f1f5f9"))
+                              xaxis=dict(gridcolor="#F5F5F7"),
+                              yaxis=dict(autorange="reversed", gridcolor="#F5F5F7"))
         st.plotly_chart(fig_kol, use_container_width=True)
 
         st.markdown("""
@@ -636,56 +778,27 @@ with tab5:
         kol_badge  = '<span class="badge" style="background:#fef9c3;color:#854d0e">⭐ KOL / SPEAKER</span>' if is_kol else ""
 
         # ── Profile header card ─────────────────────────────────────────────
-        st.markdown(f"""
-        <div style="background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);
-                    border:1px solid #bfdbfe;border-radius:16px;
-                    padding:1.8rem 2rem;margin-bottom:1.2rem;
-                    position:relative;overflow:hidden;
-                    box-shadow:0 4px 16px rgba(37,99,235,0.08)">
+        st.html(f"""
+        <div style="background:linear-gradient(135deg,#f8fafc 0%,#eff6ff 100%);border:1px solid #bfdbfe;border-radius:16px;padding:1.8rem 2rem;margin-bottom:1.2rem;position:relative;overflow:hidden;box-shadow:0 4px 16px rgba(37,99,235,0.08)">
           <div style="position:absolute;left:0;top:0;bottom:0;width:5px;background:{seg_col}"></div>
           <div style="display:flex;align-items:flex-start;gap:1.5rem;padding-left:0.6rem">
-
-            <div style="width:72px;height:72px;border-radius:50%;
-                        background:linear-gradient(135deg,#1e40af,#3b82f6);
-                        display:flex;align-items:center;justify-content:center;
-                        font-size:1.6rem;font-weight:900;color:white;flex-shrink:0;
-                        box-shadow:0 4px 12px rgba(37,99,235,0.25)">
-              {initials}
-            </div>
-
+            <div style="width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,#1e40af,#3b82f6);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:900;color:white;flex-shrink:0;box-shadow:0 4px 12px rgba(37,99,235,0.25)">{initials}</div>
             <div style="flex:1;min-width:0">
-              <div style="font-size:1.35rem;font-weight:900;color:#0f172a;letter-spacing:-0.02em">
-                {first_n} {last_n}{cred_str}
-              </div>
-              <div style="color:#475569;font-size:0.88rem;margin-top:3px">
-                📋 {spec} &nbsp;·&nbsp; 📍 {city_s}, {state_s}
-              </div>
-              <div style="color:#94a3b8;font-size:0.72rem;margin-top:2px;font-family:monospace">
-                NPI: {npi_s}
-              </div>
-              <div style="margin-top:0.65rem">
-                {seg_badge}{tier_badge}{kol_badge}
-              </div>
+              <div style="font-size:1.35rem;font-weight:900;color:#0f172a;letter-spacing:-0.02em">{first_n} {last_n}{cred_str}</div>
+              <div style="color:#475569;font-size:0.88rem;margin-top:3px">&#128203; {spec} &nbsp;&middot;&nbsp; &#128205; {city_s}, {state_s}</div>
+              <div style="color:#94a3b8;font-size:0.72rem;margin-top:2px;font-family:monospace">NPI: {npi_s}</div>
+              <div style="margin-top:0.65rem">{seg_badge}{tier_badge}{kol_badge}</div>
             </div>
-
-            <div style="text-align:center;background:white;border:2px solid {seg_col}30;
-                        border-radius:14px;padding:1.1rem 1.6rem;min-width:160px;flex-shrink:0;
-                        box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-              <div style="font-size:0.6rem;font-weight:700;color:#94a3b8;
-                          text-transform:uppercase;letter-spacing:0.1em">Targeting Score</div>
-              <div style="font-size:2.8rem;font-weight:900;color:{seg_col};line-height:1.1;margin:4px 0">
-                {score:.3f}
-              </div>
-              <div style="background:#e2e8f0;border-radius:4px;height:7px;margin:6px 0;overflow:hidden">
-                <div style="background:{seg_col};width:{score_pct:.0f}%;height:100%;border-radius:4px"></div>
-              </div>
-              <div style="font-size:0.65rem;color:#64748b">Vol D{vd}/10 &nbsp;·&nbsp; Grwth D{gd}/10</div>
+            <div style="text-align:center;background:white;border:2px solid {seg_col}30;border-radius:14px;padding:1.1rem 1.6rem;min-width:160px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+              <div style="font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em">Targeting Score</div>
+              <div style="font-size:2.8rem;font-weight:900;color:{seg_col};line-height:1.1;margin:4px 0">{score:.3f}</div>
+              <div style="background:#e2e8f0;border-radius:4px;height:7px;margin:6px 0;overflow:hidden"><div style="background:{seg_col};width:{score_pct:.0f}%;height:100%;border-radius:4px"></div></div>
+              <div style="font-size:0.65rem;color:#64748b">Vol D{vd}/10 &nbsp;&middot;&nbsp; Grwth D{gd}/10</div>
               <div style="font-size:0.6rem;color:#94a3b8;margin-top:2px">Rank #{sel_idx+1} of {len(filt):,}</div>
             </div>
-
           </div>
         </div>
-        """, unsafe_allow_html=True)
+        """)
 
         # ── KPI row ─────────────────────────────────────────────────────────
         pm1, pm2, pm3, pm4, pm5 = st.columns(5)
@@ -734,7 +847,7 @@ with tab5:
             fig_comp.update_layout(
                 **CHART_LAYOUT, height=230,
                 margin=dict(t=30, b=5, l=5, r=5),
-                yaxis=dict(range=[0, 1.2], gridcolor="#f1f5f9", tickformat=".1f"),
+                yaxis=dict(range=[0, 1.2], gridcolor="#F5F5F7", tickformat=".1f"),
                 xaxis=dict(gridcolor="rgba(0,0,0,0)"),
                 showlegend=False,
             )
@@ -777,15 +890,14 @@ with tab5:
                 "Deprioritise": "⚪ LOW PRIORITY — Deprioritise territory",
             }.get(str(hcp.get("segment","")), "")
 
-            st.markdown(f"""
-            <div class="insight" style="margin-top:0.4rem">
-            💡 <strong>Rep Action Brief</strong><br><br>
-            <strong>{first_n} {last_n}</strong> is a <strong>{tier}</strong> prescriber
-            with {growth_word} diabetes Rx trajectory.<br><br>
+            st.html(f"""
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-left:4px solid #2563eb;border-radius:8px;padding:0.9rem 1.1rem;font-size:0.82rem;color:#1e40af;line-height:1.6;margin-top:0.4rem">
+            &#128161; <strong>Rep Action Brief</strong><br><br>
+            <strong>{first_n} {last_n}</strong> is a <strong>{tier}</strong> prescriber with {growth_word} diabetes Rx trajectory.<br><br>
             {action_txt}<br><br>
             <strong>Call Priority:</strong> {seg_priority}
             </div>
-            """, unsafe_allow_html=True)
+            """)
 
             st.markdown("<div style='margin-top:0.8rem'></div>", unsafe_allow_html=True)
             profile_csv = pd.DataFrame([{
@@ -807,11 +919,12 @@ with tab5:
 # ── FOOTER ─────────────────────────────────────────────────────────────────────
 st.markdown("---")
 st.markdown("""
-<div style='text-align:center;color:#94a3b8;font-size:0.75rem;padding:0.4rem 0'>
-  Built by <strong style='color:#64748b'>Zoraawar Nandwal</strong> &nbsp;·&nbsp;
+<div style='text-align:center;color:#8E8E93;font-size:0.73rem;padding:0.5rem 0;
+            font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue",sans-serif'>
+  Built by <strong style='color:#1D1D1F'>Zoraawar Nandwal</strong> &nbsp;·&nbsp;
   Python · PostgreSQL · Streamlit · Plotly &nbsp;·&nbsp;
   CMS Medicare Part D + Open Payments 2021–2022 &nbsp;·&nbsp;
   <a href='https://github.com/zorawar91/hcp-targeting-diabetes-analytics'
-     style='color:#2563eb;text-decoration:none'>GitHub →</a>
+     style='color:#0071E3;text-decoration:none;font-weight:500'>GitHub →</a>
 </div>
 """, unsafe_allow_html=True)
