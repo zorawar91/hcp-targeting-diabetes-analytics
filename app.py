@@ -196,27 +196,14 @@ st.markdown("""
   #MainMenu, footer, header { visibility: hidden; }
 
   /* ── SIDEBAR: always visible, never collapsible ── */
-  section[data-testid="stSidebar"] {
+  section[data-testid="stSidebar"],
+  section[data-testid="stSidebar"][aria-expanded="false"] {
     display: block !important;
     visibility: visible !important;
     transform: translateX(0px) !important;
-    min-width: 21rem !important;
-    width: 21rem !important;
-    position: relative !important;
-    left: 0 !important;
-    margin-left: 0 !important;
-    overflow: visible !important;
   }
-  /* Override collapsed state — Streamlit sets aria-expanded="false" when collapsed */
-  section[data-testid="stSidebar"][aria-expanded="false"] {
-    transform: translateX(0px) !important;
-    display: block !important;
-    width: 21rem !important;
-    min-width: 21rem !important;
-  }
-  /* Hide the collapse button so users can't trigger the collapsed state */
+  /* Hide the collapse button */
   button[data-testid="stSidebarCollapseButton"],
-  [data-testid="stSidebarCollapseButton"],
   [data-testid="collapsedControl"],
   [data-testid="stSidebarCollapsedControl"],
   button[title="Collapse sidebar"],
@@ -224,6 +211,14 @@ st.markdown("""
   button[aria-label="Collapse sidebar"],
   button[aria-label="Close sidebar"] {
     display: none !important;
+  }
+
+  /* ── Remove excessive padding from main content area ── */
+  [data-testid="stMainBlockContainer"] {
+    padding-top: 1.5rem !important;
+    padding-left: 2rem !important;
+    padding-right: 2rem !important;
+    max-width: 100% !important;
   }
 
   html, body, [class*="css"] {
