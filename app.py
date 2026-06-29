@@ -1333,6 +1333,28 @@ with tab2:
         except Exception:
             top_name, top_pct = "GLP-1 Agonists", 23.0
 
+        # Territory-specific context for the drug trend insight
+        _mi_terr_ctx = ""
+        if role == "Sales Rep" and st_val:
+            _n_growth = (filt["segment"] == "Growth").sum()
+            _t2d      = CDC_T2D_PREV.get(st_val, 10.0)
+            _mi_terr_ctx = (f"In {state_full(st_val)} (T2D prevalence {_t2d}%), "
+                            f"{_n_growth:,} Growth HCPs in your territory are upgrade candidates — "
+                            f"engage before competitors do.")
+        elif role == "Area Manager" and st_val:
+            _n_growth = (filt["segment"] == "Growth").sum()
+            _t2d      = CDC_T2D_PREV.get(st_val, 10.0)
+            _mi_terr_ctx = (f"Your team covers {state_full(st_val)} (T2D: {_t2d}%). "
+                            f"{_n_growth:,} Growth HCPs across the Southwest are ready for the upgrade conversation.")
+        elif role == "Regional Manager" and region_states:
+            _n_growth = (filt["segment"] == "Growth").sum()
+            _t2d_avg  = round(sum(CDC_T2D_PREV.get(s, 10.0) for s in region_states) / len(region_states), 1)
+            _mi_terr_ctx = (f"Southwest region avg T2D prevalence {_t2d_avg}%. "
+                            f"{_n_growth:,} Growth HCPs across AZ, NM, OK & TX are prime upgrade targets.")
+        else:
+            _mi_terr_ctx = ("Driven by dual diabetes + obesity indications. Prioritise Growth-segment "
+                            "prescribers nationally before competitors establish relationships.")
+
         st.html(f"""
         <div style="background:#FFFFFF;border-radius:16px;padding:1.4rem 1.8rem;
                     margin-bottom:1.2rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);
@@ -1344,8 +1366,7 @@ with tab2:
               {top_name} is the fastest-growing diabetes drug class year-over-year
             </div>
             <div style="font-size:0.82rem;color:#6E6E73;margin-top:4px">
-              Driven by dual diabetes + obesity indications. Prioritise these diabetes prescribers
-              in your Growth segment before competitors establish relationships.
+              {_mi_terr_ctx}
             </div>
           </div>
         </div>
@@ -1420,46 +1441,95 @@ with tab2:
 # TAB 3 — TERRITORY
 # ──────────────────────────────────────────────────────────────────────────────
 with tab3:
-    # Territory insight callout
-    sa_pre = df.groupby("state").agg(
-        high_value  =("segment", lambda x: (x=="High Value").sum()),
-        growth      =("segment", lambda x: (x=="Growth").sum()),
-        total_fills =("fills_2022","sum"),
-        total_hcps  =("npi","count"),
-    ).reset_index()
-    top_hv_state   = sa_pre.nlargest(1,"high_value").iloc[0]
-    top_fill_state = sa_pre.nlargest(1,"total_fills").iloc[0]
+    # ── Territory insight callout — persona-scoped ────────────────────────────
+    def _terr_insight(role, st_val, city_val, region_states, filt_df, full_df):
+        """Return (stat1_val, stat1_label, stat1_sub, stat2_val, stat2_label, stat2_sub, color1, color2)."""
+        if role == "Sales Rep" and st_val and city_val:
+            t2d   = CDC_T2D_PREV.get(st_val, 10.0)
+            city_hcps  = filt_df[filt_df["city"].str.upper() == str(city_val).upper()] if city_val else filt_df
+            hv_city    = (city_hcps["segment"] == "High Value").sum()
+            total_city = len(city_hcps)
+            fills_city = city_hcps["fills_2022"].sum()
+            return (
+                f"{t2d}%",
+                f"T2D prevalence in {state_full(st_val)}",
+                f"CDC estimate — {hv_city:,} High Value HCPs in {str(city_val).title()} ready to engage",
+                f"{fills_city/1e3:.1f}K",
+                f"Diabetes Rx fills in {str(city_val).title()} (2022)",
+                f"{total_city:,} active diabetes prescribers in your city territory",
+                "#C0392B", "#003DA5"
+            )
+        elif role == "Area Manager" and st_val:
+            t2d   = CDC_T2D_PREV.get(st_val, 10.0)
+            sw_states = region_states or [st_val]
+            sw_df  = full_df[full_df["state"].isin(sw_states)]
+            hv_sw  = (sw_df["segment"] == "High Value").sum()
+            top_st = sw_df.groupby("state").apply(lambda x: (x["segment"]=="High Value").sum()).idxmax()
+            top_ct = sw_df[sw_df["state"]==top_st]
+            top_ct_hv = (top_ct["segment"]=="High Value").sum()
+            return (
+                f"{t2d}%",
+                f"T2D adult prevalence — {state_full(st_val)}",
+                f"Your anchor state · {hv_sw:,} High Value HCPs across {len(sw_states)} Southwest states",
+                f"{top_ct_hv:,}",
+                f"High Value HCPs in {state_full(top_st)} — top state in your area",
+                "Highest concentration of untapped prescribers in your area",
+                "#C0392B", "#003DA5"
+            )
+        elif role == "Regional Manager" and region_states:
+            rm_df  = full_df[full_df["state"].isin(region_states)]
+            hv_rm  = (rm_df["segment"] == "High Value").sum()
+            fills_rm = rm_df["fills_2022"].sum()
+            t2d_vals = [CDC_T2D_PREV.get(s, 10.0) for s in region_states]
+            t2d_avg  = sum(t2d_vals) / len(t2d_vals)
+            top_opp  = rm_df[rm_df["segment"]=="Growth"].groupby("state")["fills_2022"].sum().idxmax() if len(rm_df[rm_df["segment"]=="Growth"]) > 0 else region_states[0]
+            opp_growth = (rm_df[(rm_df["state"]==top_opp) & (rm_df["segment"]=="Growth")]["fills_2022"].sum())
+            return (
+                f"{hv_rm:,}",
+                f"High Value HCPs across the {sel_regions[0] if sel_regions else 'Southwest'} Region",
+                f"Avg T2D prevalence {t2d_avg:.1f}% · {fills_rm/1e6:.1f}M total Rx fills in region (2022)",
+                f"{opp_growth/1e3:.0f}K",
+                f"Growth segment fills in {state_full(top_opp)} — biggest regional opportunity",
+                "Prioritise Growth HCPs here before they cross the High Value threshold",
+                "#C0392B", "#1A7A40"
+            )
+        else:  # Head of Sales — national view
+            sa_pre = full_df.groupby("state").agg(
+                high_value  =("segment", lambda x: (x=="High Value").sum()),
+                total_fills =("fills_2022","sum"),
+            ).reset_index()
+            top_hv   = sa_pre.nlargest(1,"high_value").iloc[0]
+            top_fill = sa_pre.nlargest(1,"total_fills").iloc[0]
+            return (
+                f"{int(top_hv['high_value']):,}",
+                f"High Value HCPs in {state_full(top_hv['state'])}",
+                "Largest concentration of priority-1 diabetes prescribers nationally",
+                f"{top_fill['total_fills']/1e6:.1f}M",
+                f"Diabetes Rx fills in {state_full(top_fill['state'])} (2022)",
+                "Highest total prescription volume of any US state",
+                "#C0392B", "#003DA5"
+            )
+
+    _ti = _terr_insight(role, st_val, city_val, region_states, filt, df)
     st.html(f"""
     <div style="background:#FFFFFF;border-radius:16px;padding:1.2rem 1.6rem;
                 margin-bottom:1.2rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);
                 display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center">
       <div style="display:flex;align-items:center;gap:1.2rem;flex:1;min-width:220px">
-        <div style="font-size:2.2rem;font-weight:900;color:#FF3B30;
-                    letter-spacing:-0.03em;flex-shrink:0">
-          {int(top_hv_state['high_value']):,}
-        </div>
+        <div style="font-size:2.2rem;font-weight:900;color:{_ti[6]};
+                    letter-spacing:-0.03em;flex-shrink:0">{_ti[0]}</div>
         <div>
-          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">
-            High Value diabetes HCPs in {state_full(top_hv_state['state'])}
-          </div>
-          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">
-            Largest concentration of priority-1 diabetes prescribers nationally
-          </div>
+          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">{_ti[1]}</div>
+          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">{_ti[2]}</div>
         </div>
       </div>
       <div style="width:1px;background:#F0F0F0;align-self:stretch"></div>
       <div style="display:flex;align-items:center;gap:1.2rem;flex:1;min-width:220px">
-        <div style="font-size:2.2rem;font-weight:900;color:#003DA5;
-                    letter-spacing:-0.03em;flex-shrink:0">
-          {top_fill_state['total_fills']/1e6:.1f}M
-        </div>
+        <div style="font-size:2.2rem;font-weight:900;color:{_ti[7]};
+                    letter-spacing:-0.03em;flex-shrink:0">{_ti[3]}</div>
         <div>
-          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">
-            Diabetes Rx fills in {state_full(top_fill_state['state'])} (2022)
-          </div>
-          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">
-            Highest total prescription volume of any US state
-          </div>
+          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">{_ti[4]}</div>
+          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">{_ti[5]}</div>
         </div>
       </div>
     </div>
