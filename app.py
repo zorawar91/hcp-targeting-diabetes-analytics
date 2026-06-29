@@ -2007,7 +2007,15 @@ with tab6:
             rep_views = st.radio("Plan View:", ["Daily Plan","Weekly Calendar","Monthly Coverage"],
                                  horizontal=True, label_visibility="collapsed")
             st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
-            rep_filt = filt.copy()
+            # Rep Planner pulls from the full state (TX) so Growth / Maintenance
+            # HCPs outside the city-level filter still appear in the call plan.
+            # A rep's territory spans the state, not just their home city.
+            _rep_base = df[df["state"] == st_val].copy() if st_val else df.copy()
+            if seg_sel:  _rep_base = _rep_base[_rep_base["segment"].isin(seg_sel)]
+            if sp_val:   _rep_base = _rep_base[_rep_base["specialty"] == sp_val]
+            if kol_only: _rep_base = _rep_base[_rep_base["opinion_leader_payments"] > 0]
+            _rep_base = _rep_base.sort_values("targeting_score", ascending=False).reset_index(drop=True)
+            rep_filt = _rep_base
 
             # ── Daily ─────────────────────────────────────────────────────────
             if rep_views == "Daily Plan":
