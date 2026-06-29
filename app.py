@@ -464,7 +464,21 @@ with st.sidebar:
     # ── Geographic filters — scoped by role ──────────────────────────────────
     state_abbrevs = sorted(df["state"].dropna().unique().tolist())
 
-    if role in ("Sales Rep", "Area Manager"):
+    if role == "Sales Rep":
+        # Hard-assigned territory — Texas (active pharma market, ~8,200 HCPs)
+        st_val = "TX"
+        sel_regions, region_states = [], []
+        st.markdown("""
+        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
+          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                      letter-spacing:0.1em;margin-bottom:4px'>Assigned Territory</div>
+          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 Texas (TX)</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+            Southwest Region · Territory TX-4821
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    elif role == "Area Manager":
         state_options = ["🌎 All States"] + [f"{state_full(s)} ({s})" for s in state_abbrevs]
         sel_st_label  = st.selectbox("📍 State", state_options)
         st_val = None if sel_st_label == "🌎 All States" else sel_st_label.split("(")[-1].rstrip(")")
@@ -1602,20 +1616,13 @@ with tab6:
       </div>
     </div>""")
 
-    role = st.selectbox(
-        "I am a:",
-        ["👤 Sales Rep", "👥 Area Manager", "🏢 Regional Manager", "🎯 Head of Sales"],
-        label_visibility="collapsed"
-    )
     st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # SALES REP — Daily / Weekly / Monthly (single state required)
+    # SALES REP — Daily / Weekly / Monthly
     # ══════════════════════════════════════════════════════════════════════════
-    if role == "👤 Sales Rep":
-        if not st_val:
-            st.warning("📍 Select your territory state from the sidebar to generate your personal call plan.")
-        else:
+    if role == "Sales Rep":
+        if True:
             rep_views = st.radio("Plan View:", ["📅 Daily Plan","🗓️ Weekly Calendar","📊 Monthly Coverage"],
                                  horizontal=True, label_visibility="collapsed")
             st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
@@ -1766,7 +1773,7 @@ with tab6:
     # ══════════════════════════════════════════════════════════════════════════
     # AREA MANAGER — Weekly · Monthly · Quarterly (1 region)
     # ══════════════════════════════════════════════════════════════════════════
-    elif role == "👥 Area Manager":
+    elif role == "Area Manager":
         region_sel = st.selectbox("Select your region:",
                                   list(US_REGIONS.keys()), key="am_region")
         region_states = US_REGIONS[region_sel]
@@ -1890,7 +1897,7 @@ with tab6:
     # ══════════════════════════════════════════════════════════════════════════
     # REGIONAL MANAGER — Monthly · Quarterly (multi-region)
     # ══════════════════════════════════════════════════════════════════════════
-    elif role == "🏢 Regional Manager":
+    elif role == "Regional Manager":
         rm_regions = st.multiselect("Select your regions:",
                                     list(US_REGIONS.keys()),
                                     default=list(US_REGIONS.keys())[:2],
