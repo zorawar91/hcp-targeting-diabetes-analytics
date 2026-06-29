@@ -163,6 +163,28 @@ st.markdown("""
   /* ── Sidebar ── */
   .stSidebar { background: #1C1C1E !important; border-right: 1px solid #2C2C2E; }
   .stSidebar * { color: #F5F5F7 !important; }
+
+  /* Selectbox / multiselect — force all internal text white */
+  .stSidebar [data-testid="stSelectbox"] div,
+  .stSidebar [data-testid="stSelectbox"] span,
+  .stSidebar [data-testid="stSelectbox"] p,
+  .stSidebar [data-baseweb="select"] div,
+  .stSidebar [data-baseweb="select"] span,
+  .stSidebar [data-baseweb="select"] input,
+  .stSidebar [data-testid="stMultiSelect"] div,
+  .stSidebar [data-testid="stMultiSelect"] span {
+    color: #F5F5F7 !important;
+    background-color: transparent !important;
+  }
+  /* Selectbox container background */
+  .stSidebar [data-baseweb="select"] > div:first-child {
+    background-color: #2C2C2E !important;
+    border-color: #3A3A3C !important;
+    border-radius: 10px !important;
+  }
+  /* Dropdown menu */
+  .stSidebar [data-baseweb="popover"] * { color: #1D1D1F !important; }
+
   .stSidebar .stSelectbox label,
   .stSidebar .stSlider label,
   .stSidebar .stMultiSelect label {
@@ -262,12 +284,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ── DATABASE ───────────────────────────────────────────────────────────────────
-DB = dict(host="localhost", port=5432, dbname="postgres",
-          user="postgres", password="newpassword123")
+# Reads from Streamlit secrets (production) or falls back to local defaults.
+# On Streamlit Community Cloud, set secrets in the app dashboard.
+# Locally, create .streamlit/secrets.toml (see secrets.toml.example).
+def _db_config():
+    try:
+        s = st.secrets["postgres"]
+        return dict(host=s["host"], port=int(s.get("port", 5432)),
+                    dbname=s["dbname"], user=s["user"], password=s["password"],
+                    sslmode=s.get("sslmode", "require"))
+    except Exception:
+        # Local development fallback
+        return dict(host="localhost", port=5432, dbname="postgres",
+                    user="postgres", password="newpassword123")
 
 @st.cache_resource(show_spinner=False)
 def get_conn():
-    return psycopg2.connect(**DB)
+    return psycopg2.connect(**_db_config())
 
 @st.cache_data(ttl=600, show_spinner=False)
 def load_hcp():
@@ -319,6 +352,46 @@ with st.sidebar:
     kol_only = st.toggle("⭐ KOL / Speaker Only", value=False)
 
     st.markdown("---")
+
+    with st.expander("📊 Score Methodology"):
+        st.markdown("""
+        <div style='font-size:0.72rem;color:#F5F5F7;line-height:1.7'>
+          <div style='font-weight:700;color:#FFFFFF;margin-bottom:0.5rem'>
+            Composite Targeting Score
+          </div>
+          <div style='background:#2C2C2E;border-radius:10px;padding:10px 12px;margin-bottom:0.7rem;
+                      font-family:monospace;font-size:0.68rem;color:#D1E8FF'>
+            Score = (Vol_D × 0.40)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (Growth_D × 0.40)<br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (Pay_D × 0.20)
+          </div>
+          <div style='color:#8E8E93;font-size:0.67rem;margin-bottom:0.6rem'>
+            Each component is ranked via <strong style='color:#D1E8FF'>NTILE(10)</strong>
+            within specialty, producing deciles 1–10.
+            Score is normalised 0–1.
+          </div>
+          <div style='border-top:1px solid #3A3A3C;padding-top:0.5rem;margin-top:0.2rem'>
+            <div style='color:#AEAEB2;font-size:0.66rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem'>
+              Components
+            </div>
+            <div style='margin-bottom:0.3rem'>
+              <span style='color:#0071E3;font-weight:700'>Vol (40%)</span>
+              <span style='color:#8E8E93'> — 2022 Rx fills</span>
+            </div>
+            <div style='margin-bottom:0.3rem'>
+              <span style='color:#34C759;font-weight:700'>Growth (40%)</span>
+              <span style='color:#8E8E93'> — YoY fill growth 2021→2022</span>
+            </div>
+            <div>
+              <span style='color:#FF9500;font-weight:700'>Payment (20%)</span>
+              <span style='color:#8E8E93'> — CMS Open Payments received</span>
+            </div>
+          </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
     st.markdown("""
     <div style='font-size:0.66rem;color:#636366;line-height:2;padding:0.1rem 0'>
       <div style='color:#8E8E93;font-size:0.59rem;font-weight:700;text-transform:uppercase;
@@ -362,7 +435,7 @@ st.markdown(f"""
     </div>
   </div>
   <div style='margin-top:0.8rem;display:flex;gap:6px;flex-wrap:wrap'>
-    {"".join(f'<span style="background:#F5F5F7;color:#1D1D1F;padding:3px 12px;border-radius:980px;font-size:0.65rem;font-weight:600;letter-spacing:0.04em;border:1px solid #E5E5EA">{t}</span>' for t in ["PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Live Filters","Python · Streamlit · Plotly"])}
+    {"".join(f'<span style="background:#F5F5F7;color:#1D1D1F;padding:3px 12px;border-radius:980px;font-size:0.65rem;font-weight:600;letter-spacing:0.04em;border:1px solid #E5E5EA">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -374,15 +447,47 @@ avg_s  = filt["targeting_score"].mean()
 kols_n = (filt["opinion_leader_payments"] > 0).sum()
 
 k1, k2, k3, k4, k5 = st.columns(5)
-k1.metric("HCPs in View",           f"{len(filt):,}")
+k1.metric("Diabetes Prescribers",   f"{len(filt):,}")
 k2.metric("🔴 High Value",          f"{hv_n:,}")
 k3.metric("🟢 Growth Opportunity",  f"{gr_n:,}")
 k4.metric("Avg Targeting Score",    f"{avg_s:.3f}" if len(filt) > 0 and not np.isnan(avg_s) else "—")
 k5.metric("⭐ KOLs / Speakers",     f"{kols_n:,}")
 
+# ── SEGMENT LEGEND + DATA FRESHNESS ───────────────────────────────────────────
+st.html("""
+<div style="display:flex;align-items:center;justify-content:space-between;
+            flex-wrap:wrap;gap:8px;margin:0.6rem 0 0.2rem">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+    <span style="font-size:0.62rem;font-weight:700;color:#8E8E93;
+                 text-transform:uppercase;letter-spacing:0.08em;margin-right:4px">
+      Segment Key
+    </span>
+    <span style="background:#FFF0EF;color:#CC2200;padding:3px 11px;border-radius:980px;
+                 font-size:0.65rem;font-weight:700;border:1px solid #FFCDD9">
+      🔴 High Value — Vol ≥ D8 &amp; Growth ≥ D8
+    </span>
+    <span style="background:#EDFBF1;color:#1A7A35;padding:3px 11px;border-radius:980px;
+                 font-size:0.65rem;font-weight:700;border:1px solid #C3F2D0">
+      🟢 Growth — Growth ≥ D8, Vol &lt; D8
+    </span>
+    <span style="background:#FFF8ED;color:#CC7700;padding:3px 11px;border-radius:980px;
+                 font-size:0.65rem;font-weight:700;border:1px solid #FFE4B2">
+      🟠 Maintenance — Vol ≥ D8, Growth &lt; D8
+    </span>
+    <span style="background:#F5F5F7;color:#6E6E73;padding:3px 11px;border-radius:980px;
+                 font-size:0.65rem;font-weight:600;border:1px solid #E5E5EA">
+      ⚫ Deprioritise — below D8 on both
+    </span>
+  </div>
+  <div style="font-size:0.62rem;color:#AEAEB2;white-space:nowrap">
+    📅 Data: CMS Medicare Part D 2021–2022 · Open Payments 2022 · NPPES NPI Registry
+  </div>
+</div>
+""")
+
 # ── TODAY'S PRIORITIES ─────────────────────────────────────────────────────────
 st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-st.markdown('<div class="sec">Today\'s Top 5 — Highest Priority HCPs to Contact</div>',
+st.markdown('<div class="sec">Today\'s Top 5 — Highest Priority Diabetes Prescribers to Contact</div>',
             unsafe_allow_html=True)
 
 if len(filt) == 0:
@@ -435,9 +540,9 @@ st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
 tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "📋  Call List",
+    "📋  Diabetes Call List",
     "📈  Market Intelligence",
-    "🗺️  Territory",
+    "🗺️  Territory Map",
     "⭐  Opinion Leaders",
     "🩺  HCP Profile",
 ])
@@ -449,7 +554,7 @@ with tab1:
     col_main, col_side = st.columns([3, 2])
 
     with col_main:
-        st.markdown('<div class="sec">Priority Call List — ranked by targeting score</div>',
+        st.markdown('<div class="sec">Diabetes HCP Call List — ranked by targeting score</div>',
                     unsafe_allow_html=True)
 
         disp = filt.head(200).copy()
@@ -537,21 +642,69 @@ with tab1:
                             yaxis=dict(gridcolor="#F5F5F7"))
         st.plotly_chart(fig_h, use_container_width=True)
 
-        st.markdown('<div class="sec">Top Specialties</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Top Specialties — Diabetes Prescribers</div>', unsafe_allow_html=True)
         ts = filt.groupby("specialty").size().reset_index(name="Count").nlargest(8,"Count")
+        ts["specialty"] = ts["specialty"].apply(lambda x: x[:28] + "…" if len(str(x)) > 28 else x)
         fig_ts = px.bar(ts, x="Count", y="specialty", orientation="h",
                         color="Count", color_continuous_scale=["#D1E8FF","#0071E3"],
+                        text="Count",
                         labels={"specialty":"","Count":"HCPs"})
-        fig_ts.update_layout(**CHART_LAYOUT, height=260, coloraxis_showscale=False,
-                             margin=dict(t=5,b=5,l=5,r=5),
-                             xaxis=dict(gridcolor="#F5F5F7"),
-                             yaxis=dict(gridcolor="#F5F5F7"))
+        fig_ts.update_traces(texttemplate="%{text:,}", textposition="outside",
+                             textfont=dict(size=10, color="#6E6E73"))
+        fig_ts.update_layout(**CHART_LAYOUT, height=290, coloraxis_showscale=False,
+                             margin=dict(t=5,b=5,l=10,r=50),
+                             xaxis=dict(gridcolor="#F5F5F7", showticklabels=False),
+                             yaxis=dict(gridcolor="#F5F5F7", autorange="reversed",
+                                        tickfont=dict(size=11)))
         st.plotly_chart(fig_ts, use_container_width=True)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # TAB 2 — MARKET INTELLIGENCE
 # ──────────────────────────────────────────────────────────────────────────────
 with tab2:
+    # Diabetes drug class reference
+    st.html("""
+    <div style="background:#FFFFFF;border-radius:16px;padding:1.2rem 1.6rem;
+                margin-bottom:1.2rem;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
+      <div style="font-size:0.7rem;font-weight:700;color:#8E8E93;text-transform:uppercase;
+                  letter-spacing:0.1em;margin-bottom:0.9rem">
+        Diabetes Drug Class Reference — Oral & Injectable Antidiabetics (CMS Medicare Part D)
+      </div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap">
+        <div style="flex:1;min-width:150px;background:#EBF5FF;border-radius:12px;padding:10px 14px;
+                    border-left:3px solid #0071E3">
+          <div style="font-size:0.75rem;font-weight:700;color:#0071E3">GLP-1 Agonists</div>
+          <div style="font-size:0.68rem;color:#3A3A3C;margin-top:3px">Ozempic · Mounjaro · Wegovy</div>
+          <div style="font-size:0.65rem;color:#6E6E73;margin-top:2px">Fastest growing · Diabetes + obesity dual use</div>
+        </div>
+        <div style="flex:1;min-width:150px;background:#EDFBF1;border-radius:12px;padding:10px 14px;
+                    border-left:3px solid #34C759">
+          <div style="font-size:0.75rem;font-weight:700;color:#1A7A35">SGLT-2 Inhibitors</div>
+          <div style="font-size:0.68rem;color:#3A3A3C;margin-top:3px">Jardiance · Farxiga · Invokana</div>
+          <div style="font-size:0.65rem;color:#6E6E73;margin-top:2px">Cardio-renal protection · Second-line</div>
+        </div>
+        <div style="flex:1;min-width:150px;background:#FFF8ED;border-radius:12px;padding:10px 14px;
+                    border-left:3px solid #FF9500">
+          <div style="font-size:0.75rem;font-weight:700;color:#CC7700">DPP-4 Inhibitors</div>
+          <div style="font-size:0.68rem;color:#3A3A3C;margin-top:3px">Januvia · Tradjenta · Onglyza</div>
+          <div style="font-size:0.65rem;color:#6E6E73;margin-top:2px">Oral add-on · Low hypoglycaemia risk</div>
+        </div>
+        <div style="flex:1;min-width:150px;background:#FFF0EF;border-radius:12px;padding:10px 14px;
+                    border-left:3px solid #FF3B30">
+          <div style="font-size:0.75rem;font-weight:700;color:#CC2200">Sulfonylureas</div>
+          <div style="font-size:0.68rem;color:#3A3A3C;margin-top:3px">Glipizide · Glimepiride · Glyburide</div>
+          <div style="font-size:0.65rem;color:#6E6E73;margin-top:2px">Older class · Declining as GLP-1 grows</div>
+        </div>
+        <div style="flex:1;min-width:150px;background:#F5F0FF;border-radius:12px;padding:10px 14px;
+                    border-left:3px solid #BF5AF2">
+          <div style="font-size:0.75rem;font-weight:700;color:#7B2FBE">Biguanides</div>
+          <div style="font-size:0.68rem;color:#3A3A3C;margin-top:3px">Metformin (generic)</div>
+          <div style="font-size:0.65rem;color:#6E6E73;margin-top:2px">First-line standard of care · Highest volume</div>
+        </div>
+      </div>
+    </div>
+    """)
+
     # Key insight callout first
     if len(drug_df) > 0:
         try:
@@ -574,10 +727,10 @@ with tab2:
                       letter-spacing:-0.03em;flex-shrink:0">+{top_pct:.0f}%</div>
           <div>
             <div style="font-size:1rem;font-weight:700;color:#1D1D1F">
-              {top_name} is the fastest-growing drug class year-over-year
+              {top_name} is the fastest-growing diabetes drug class year-over-year
             </div>
             <div style="font-size:0.82rem;color:#6E6E73;margin-top:4px">
-              Driven by dual diabetes + obesity indications. Prioritise these prescribers
+              Driven by dual diabetes + obesity indications. Prioritise these diabetes prescribers
               in your Growth segment before competitors establish relationships.
             </div>
           </div>
@@ -587,7 +740,7 @@ with tab2:
     col_l, col_r = st.columns([3,2])
 
     with col_l:
-        st.markdown('<div class="sec">Rx Trends by Drug Class (2021 → 2022)</div>',
+        st.markdown('<div class="sec">Diabetes Rx Trends by Drug Class (2021 → 2022)</div>',
                     unsafe_allow_html=True)
         fig_tr = px.line(drug_df, x="year", y="total_fills", color="drug_class",
                          markers=True, line_shape="spline",
@@ -602,7 +755,7 @@ with tab2:
         st.plotly_chart(fig_tr, use_container_width=True)
 
     with col_r:
-        st.markdown('<div class="sec">2022 Market Share</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">2022 Diabetes Rx Market Share</div>', unsafe_allow_html=True)
         s22 = (drug_df[drug_df["year"]==2022]
                .groupby("drug_class")["total_fills"].sum().reset_index())
         s22.columns = ["Drug Class","Fills"]
@@ -633,7 +786,7 @@ with tab2:
                 pass
 
     st.markdown("---")
-    st.markdown('<div class="sec">Average YoY Rx Growth by Specialty — Top 20 (min 50 HCPs)</div>',
+    st.markdown('<div class="sec">Avg YoY Rx Growth by Specialty — Top 20 Diabetes Specialties (min 50 HCPs)</div>',
                 unsafe_allow_html=True)
     sg = (df.groupby("specialty")
           .agg(avg_growth=("yoy_growth_pct","mean"), n=("npi","count"))
@@ -653,6 +806,51 @@ with tab2:
 # TAB 3 — TERRITORY
 # ──────────────────────────────────────────────────────────────────────────────
 with tab3:
+    # Territory insight callout
+    sa_pre = df.groupby("state").agg(
+        high_value  =("segment", lambda x: (x=="High Value").sum()),
+        growth      =("segment", lambda x: (x=="Growth").sum()),
+        total_fills =("fills_2022","sum"),
+        total_hcps  =("npi","count"),
+    ).reset_index()
+    top_hv_state   = sa_pre.nlargest(1,"high_value").iloc[0]
+    top_fill_state = sa_pre.nlargest(1,"total_fills").iloc[0]
+    st.html(f"""
+    <div style="background:#FFFFFF;border-radius:16px;padding:1.2rem 1.6rem;
+                margin-bottom:1.2rem;box-shadow:0 2px 8px rgba(0,0,0,0.05);
+                display:flex;gap:2.5rem;flex-wrap:wrap;align-items:center">
+      <div style="display:flex;align-items:center;gap:1.2rem;flex:1;min-width:220px">
+        <div style="font-size:2.2rem;font-weight:900;color:#FF3B30;
+                    letter-spacing:-0.03em;flex-shrink:0">
+          {int(top_hv_state['high_value']):,}
+        </div>
+        <div>
+          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">
+            High Value diabetes HCPs in {state_full(top_hv_state['state'])}
+          </div>
+          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">
+            Largest concentration of priority-1 diabetes prescribers nationally
+          </div>
+        </div>
+      </div>
+      <div style="width:1px;background:#F0F0F0;align-self:stretch"></div>
+      <div style="display:flex;align-items:center;gap:1.2rem;flex:1;min-width:220px">
+        <div style="font-size:2.2rem;font-weight:900;color:#0071E3;
+                    letter-spacing:-0.03em;flex-shrink:0">
+          {top_fill_state['total_fills']/1e6:.1f}M
+        </div>
+        <div>
+          <div style="font-size:0.95rem;font-weight:700;color:#1D1D1F">
+            Diabetes Rx fills in {state_full(top_fill_state['state'])} (2022)
+          </div>
+          <div style="font-size:0.78rem;color:#6E6E73;margin-top:3px">
+            Highest total prescription volume of any US state
+          </div>
+        </div>
+      </div>
+    </div>
+    """)
+
     ctrl, _ = st.columns([2,3])
     with ctrl:
         map_metric = st.selectbox("View by:", [
@@ -706,7 +904,7 @@ with tab3:
 
     ca, cb, cc = st.columns(3)
     with ca:
-        st.markdown('<div class="sec">Top States — High Value HCPs</div>', unsafe_allow_html=True)
+        st.markdown('<div class="sec">Top States — High Value Diabetes HCPs</div>', unsafe_allow_html=True)
         t = sa.nlargest(10,"high_value")[["State Name","high_value","growth","total_hcps"]]
         t.columns = ["State","High Value","Growth","Total HCPs"]
         st.dataframe(t, use_container_width=True, hide_index=True)
@@ -751,8 +949,8 @@ with tab4:
             </div>
             <div style="font-size:0.8rem;color:#6E6E73;margin-top:3px">
               {state_full(top_kol.get('state',''))} &nbsp;·&nbsp;
-              {len(kol_df):,} total KOLs identified &nbsp;·&nbsp;
-              {(kol_df['segment']=='High Value').sum():,} are High Value prescribers
+              {len(kol_df):,} diabetes KOLs identified &nbsp;·&nbsp;
+              {(kol_df['segment']=='High Value').sum():,} are High Value diabetes prescribers
             </div>
           </div>
         </div>
@@ -768,7 +966,7 @@ with tab4:
     col_kl, col_kc = st.columns([3,2])
 
     with col_kl:
-        st.markdown('<div class="sec">Speaker Bureau & Advisory Board Candidates</div>',
+        st.markdown('<div class="sec">Diabetes KOLs — Speaker Bureau & Advisory Board Candidates</div>',
                     unsafe_allow_html=True)
         kd = kol_df.head(100)[[
             "last_name","first_name","credential","specialty","state","city",
@@ -824,18 +1022,43 @@ with tab5:
             unsafe_allow_html=True)
 
         top_n = filt.head(200).reset_index(drop=True)
-        labels = [
-            f"#{i+1}  {r['last_name']}, {r['first_name']} "
-            f"{r['credential'] or ''} — {r['specialty']} · "
-            f"{r['city']}, {state_full(r['state'])} · Score {r['targeting_score']:.3f} · {r['segment']}"
-            for i, (_, r) in enumerate(top_n.iterrows())
-        ]
 
-        sel_idx = st.selectbox("Search or scroll to select HCP:",
-                               range(len(labels)),
-                               format_func=lambda i: labels[i],
-                               key="profile_sel")
+        # Two-column picker: name search col + quick-stats col
+        pick_col, stat_col = st.columns([3, 2])
+        with pick_col:
+            labels = [
+                f"{'🔴' if r['segment']=='High Value' else '🟢' if r['segment']=='Growth' else '🟠' if r['segment']=='Maintenance' else '⚫'}  "
+                f"Dr {r['last_name']}, {str(r['first_name'])[:1]}.  {r['credential'] or ''}  —  "
+                f"{str(r['specialty'])[:30]}  ·  Score {r['targeting_score']:.3f}"
+                for _, r in top_n.iterrows()
+            ]
+            sel_idx = st.selectbox(
+                "Select HCP (type to search by name or specialty):",
+                range(len(labels)),
+                format_func=lambda i: labels[i],
+                key="profile_sel"
+            )
         hcp = top_n.iloc[sel_idx]
+        with stat_col:
+            seg_  = hcp.get("segment","")
+            sc_c  = SEG_COLORS.get(seg_,"#8E8E93")
+            sc_bg = SEG_BG.get(seg_,"#F5F5F7")
+            fills_ = hcp.get("fills_2022", None)
+            yoy_   = hcp.get("yoy_growth_pct", None)
+            st.html(f"""
+            <div style="background:#F5F5F7;border-radius:12px;padding:10px 14px;
+                        margin-top:4px;display:flex;gap:16px;flex-wrap:wrap">
+              <div><div style="font-size:0.6rem;color:#8E8E93;font-weight:700;text-transform:uppercase">Segment</div>
+                <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;border-radius:980px;
+                             font-size:0.72rem;font-weight:700">{seg_}</span></div>
+              <div><div style="font-size:0.6rem;color:#8E8E93;font-weight:700;text-transform:uppercase">Score</div>
+                <div style="font-size:0.9rem;font-weight:700;color:#1D1D1F">{hcp.get('targeting_score',0):.3f}</div></div>
+              <div><div style="font-size:0.6rem;color:#8E8E93;font-weight:700;text-transform:uppercase">Fills 2022</div>
+                <div style="font-size:0.9rem;font-weight:700;color:#1D1D1F">{f"{fills_:,.0f}" if pd.notna(fills_) else "—"}</div></div>
+              <div><div style="font-size:0.6rem;color:#8E8E93;font-weight:700;text-transform:uppercase">YoY</div>
+                <div style="font-size:0.9rem;font-weight:700;color:{'#1A7A35' if pd.notna(yoy_) and yoy_>=0 else '#CC2200'}">{f"+{yoy_:.1f}%" if pd.notna(yoy_) and yoy_>=0 else (f"{yoy_:.1f}%" if pd.notna(yoy_) else "—")}</div></div>
+            </div>
+            """)
 
         # Derived
         tier, tier_color, tier_bg = loyalty_tier(hcp, df)

@@ -2,3 +2,9 @@ data/raw/
 *.csv
 *.zip
 .DS_Store
+__pycache__/
+*.pyc
+.env
+
+# Streamlit secrets — NEVER commit real credentials
+.streamlit/secrets.toml

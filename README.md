@@ -1,2 +1,128 @@
-# hcp-targeting-diabetes-analytics
-Pharma field forces in the diabetes segment operate in a crowded, evolving market where GLP1 agonists (semaglutide, tirzepatide) have disrupted prescribing hierarchies. Most commercial teams continue to rely on static, volume-only HCP segm built on outdated tertile/decile cuts and reps call on the wrong physicians, miss high-growth prescribers.
+# HCP Targeting & Brand Performance Analytics — Diabetes
+
+A production-grade commercial intelligence platform for diabetes portfolio management, built to replicate the core functionality of enterprise HCP targeting tools using open public data.
+
+Built as a portfolio project demonstrating end-to-end data engineering, analytics, and BI skills across SQL, Python, and Streamlit.
+
+---
+
+## What it does
+
+Sales reps and commercial teams in pharma need to know: **who do I call today, and why?**
+
+This platform answers that for a diabetes drug portfolio by:
+- Scoring 227,455 US physicians on a composite targeting model (Rx volume, YoY growth, industry engagement)
+- Segmenting HCPs into actionable tiers: High Value, Growth, Maintenance, Deprioritise
+- Surfacing territory intelligence, KOL identification, and per-HCP call planning
+- Generating recommended next actions per HCP based on their decile profile
+
+---
+
+## Tech stack
+
+| Layer | Tools |
+|---|---|
+| Data warehouse | PostgreSQL 15 (star schema, 83M+ rows) |
+| ETL pipeline | Python · psycopg2 · pandas |
+| Analytics | SQL window functions · NTILE deciles · YoY growth |
+| Web app | Streamlit · Plotly Express · Plotly Graph Objects |
+| Data sources | CMS Medicare Part D 2021–2022 · CMS Open Payments 2022 · NPPES NPI Registry |
+
+---
+
+## Scoring methodology
+
+The composite targeting score is a weighted sum of three specialty-normalised decile ranks:
+
+```
+Score = (Volume_Decile  × 0.40)
+      + (Growth_Decile  × 0.40)
+      + (Payment_Decile × 0.20)
+```
+
+Each component uses `NTILE(10) OVER (PARTITION BY specialty)` to rank HCPs within their specialty peer group, producing deciles 1–10. The final score is normalised to 0–1.
+
+### Segment definitions
+
+| Segment | Rule |
+|---|---|
+| 🔴 High Value | Volume ≥ D8 **and** Growth ≥ D8 |
+| 🟢 Growth | Growth ≥ D8 **and** Volume < D8 |
+| 🟠 Maintenance | Volume ≥ D8 **and** Growth < D8 |
+| ⚫ Deprioritise | Below D8 on both dimensions |
+
+### Loyalty tiers
+
+Derived from fills volume quantiles and YoY trajectory: **Loyalist / Intermittent / Tourist / Non-Rx**
+
+---
+
+## Data sources
+
+All data is public, sourced from US government open data portals.
+
+| Dataset | Rows | Description |
+|---|---|---|
+| CMS Medicare Part D Prescribers 2021 | ~27M | Prescription fills by NPI and drug class |
+| CMS Medicare Part D Prescribers 2022 | ~28M | Same, following year for YoY growth |
+| CMS Open Payments 2022 | ~12M | Industry payments to physicians (speaker fees, consulting, research) |
+| NPPES NPI Registry | ~8M | HCP name, specialty, address, credentials |
+
+Total pipeline: **83M+ rows** loaded into PostgreSQL via Python ETL.
+
+---
+
+## Dashboard features
+
+**Tab 1 — Diabetes Call List**: Ranked HCP table with segment colouring, YoY growth, recommended next action per HCP. CSV export included.
+
+**Tab 2 — Market Intelligence**: Diabetes drug class reference (GLP-1 / SGLT-2 / DPP-4 / Sulfonylureas / Biguanides), Rx trend lines 2021→2022, market share, YoY growth table, specialty growth ranking.
+
+**Tab 3 — Territory Map**: Choropleth map of High Value HCPs / Growth HCPs / Rx volume / avg score by US state.
+
+**Tab 4 — Opinion Leaders**: KOL identification using CMS Open Payments. Speaker bureau and advisory board candidates ranked by payment volume.
+
+**Tab 5 — HCP Profile Drilldown**: Individual HCP view showing scoring breakdown, loyalty tier, simulated call history, brand recommendations, and rep action brief.
+
+---
+
+## How to run
+
+**Prerequisites**: Python 3.10+, PostgreSQL 15, CMS datasets loaded.
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/zorawarsinghnandwal/hcp-targeting-diabetes-analytics.git
+cd hcp-targeting-diabetes-analytics
+
+# 2. Install dependencies
+pip install streamlit psycopg2-binary pandas plotly numpy
+
+# 3. Run the app (assumes PostgreSQL running locally)
+streamlit run app.py
+```
+
+Database defaults: `host=localhost port=5432 dbname=postgres user=postgres`
+
+---
+
+## Project structure
+
+```
+hcp-targeting-diabetes-analytics/
+├── app.py                  # Streamlit web app (main deliverable)
+├── sql/
+│   ├── schema.sql          # Star schema + views
+│   └── analysis/           # Exploratory SQL scripts
+├── pipeline/
+│   └── etl.py              # CMS data ingestion + scoring pipeline
+└── README.md
+```
+
+---
+
+## Author
+
+**Zoraawar Nandwal** · [GitHub](https://github.com/zorawarsinghnandwal)
+
+Built with: Python · PostgreSQL · Streamlit · Plotly · CMS Medicare Part D + Open Payments 2021–2022
