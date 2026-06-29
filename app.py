@@ -195,18 +195,34 @@ st.markdown("""
 <style>
   #MainMenu, footer, header { visibility: hidden; }
 
-  /* ── Sidebar expand button — always show when sidebar is collapsed ── */
-  [data-testid="collapsedControl"] {
-    visibility: visible !important;
-    display: flex !important;
-    opacity: 1 !important;
-    background: #003DA5 !important;
-    border-radius: 0 8px 8px 0 !important;
-    box-shadow: 2px 0 8px rgba(0,61,165,0.25) !important;
-    z-index: 999 !important;
+  /* ── Remove the sidebar collapse button — keep sidebar always open ── */
+  button[data-testid="stSidebarCollapseButton"],
+  [data-testid="stSidebarCollapseButton"],
+  button[title="Collapse sidebar"],
+  button[title="Close sidebar"],
+  button[aria-label="Collapse sidebar"],
+  button[aria-label="Close sidebar"] {
+    display: none !important;
+  }
+
+  /* ── Expand button (failsafe) — fixed, always on top if sidebar ever collapses ── */
+  [data-testid="collapsedControl"],
+  [data-testid="stSidebarCollapsedControl"] {
+    position: fixed !important;
+    left: 0 !important; top: 50% !important;
+    transform: translateY(-50%) !important;
+    visibility: visible !important; display: flex !important;
+    opacity: 1 !important; z-index: 2147483647 !important;
+    background: #003DA5 !important; cursor: pointer !important;
+    border-radius: 0 10px 10px 0 !important;
+    padding: 14px 7px !important;
+    box-shadow: 3px 0 12px rgba(0,61,165,0.4) !important;
+    pointer-events: auto !important;
   }
   [data-testid="collapsedControl"] svg,
-  [data-testid="collapsedControl"] button svg {
+  [data-testid="stSidebarCollapsedControl"] svg,
+  [data-testid="collapsedControl"] svg *,
+  [data-testid="stSidebarCollapsedControl"] svg * {
     fill: white !important; color: white !important;
   }
 
@@ -367,38 +383,6 @@ def load_drug_trends():
 with st.spinner("Loading data…"):
     df      = load_hcp()
     drug_df = load_drug_trends()
-
-# ── SIDEBAR TOGGLE FIX ─────────────────────────────────────────────────────────
-# JS MutationObserver: watches for sidebar collapse and ensures expand button
-# is always visible + styled, regardless of Streamlit version selector changes.
-st.html("""
-<script>
-(function() {
-  function styleToggle() {
-    var selectors = [
-      '[data-testid="collapsedControl"]',
-      '[data-testid="stSidebarCollapsedControl"]',
-      'button[title="Open sidebar"]',
-      'button[aria-label="Open sidebar"]',
-      '[data-testid="stSidebar"] ~ div button'
-    ];
-    selectors.forEach(function(sel) {
-      document.querySelectorAll(sel).forEach(function(el) {
-        el.style.cssText += ';display:flex!important;visibility:visible!important;' +
-          'opacity:1!important;z-index:99999!important;pointer-events:auto!important;' +
-          'background:#003DA5!important;border-radius:0 8px 8px 0!important;' +
-          'min-width:24px!important;cursor:pointer!important;';
-        var svgs = el.querySelectorAll('svg, svg *');
-        svgs.forEach(function(s){ s.style.cssText += ';fill:white!important;color:white!important;'; });
-      });
-    });
-  }
-  styleToggle();
-  var obs = new MutationObserver(styleToggle);
-  obs.observe(document.body, {childList:true, subtree:true, attributes:true});
-})();
-</script>
-""")
 
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
