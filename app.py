@@ -1968,7 +1968,7 @@ with tab6:
                                 {row.get("credential","") or ""}
                               </div>
                               <div style="font-size:0.72rem;color:#6E6E73">{str(row.get("specialty",""))[:30]}</div>
-                              <div style="font-size:0.68rem;color:#8E8E93">📍 {row.get("city","")}</div>
+                              <div style="font-size:0.68rem;color:#8E8E93">📍 {str(row.get("city","")).title()}</div>
                               <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap">
                                 <span style="background:{sc_bg};color:{sc_c};padding:2px 8px;
                                   border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
@@ -2025,7 +2025,7 @@ with tab6:
                                 Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
                               </div>
                               <div style="font-size:0.65rem;color:#6E6E73">{str(row.get("specialty",""))[:22]}</div>
-                              <div style="font-size:0.63rem;color:#8E8E93">📍 {row.get("city","")}</div>
+                              <div style="font-size:0.63rem;color:#8E8E93">📍 {str(row.get("city","")).title()}</div>
                               <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
                                 <span style="background:{sc_bg};color:{sc_c};padding:1px 7px;
                                   border-radius:980px;font-size:0.6rem;font-weight:700">{seg}</span>
