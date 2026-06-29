@@ -195,25 +195,42 @@ st.markdown("""
 <style>
   #MainMenu, footer, header { visibility: hidden; }
 
-  /* ── SIDEBAR: always visible, never collapsible ── */
-  section[data-testid="stSidebar"],
-  section[data-testid="stSidebar"][aria-expanded="false"] {
-    display: block !important;
-    visibility: visible !important;
-    transform: translateX(0px) !important;
+  /* ══ SIDEBAR: locked open, never collapses ══════════════════════════════ */
+  /* Force the flex parent to never shrink the sidebar */
+  [data-testid="stAppViewContainer"] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
   }
-  /* Hide the collapse button */
+  /* Lock the sidebar itself */
+  section[data-testid="stSidebar"] {
+    flex: 0 0 22rem !important;
+    min-width: 22rem !important;
+    max-width: 22rem !important;
+    width: 22rem !important;
+    transform: translateX(0) !important;
+    transition: none !important;
+    display: flex !important;
+    flex-direction: column !important;
+    visibility: visible !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+  }
+  section[data-testid="stSidebar"] > div {
+    min-width: 22rem !important;
+    width: 22rem !important;
+  }
+  /* Hide the collapse button — sidebar stays open */
   button[data-testid="stSidebarCollapseButton"],
   [data-testid="collapsedControl"],
   [data-testid="stSidebarCollapsedControl"],
-  button[title="Collapse sidebar"],
-  button[title="Close sidebar"],
-  button[aria-label="Collapse sidebar"],
-  button[aria-label="Close sidebar"] {
+  button[title="Collapse sidebar"], button[title="Close sidebar"],
+  button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"] {
     display: none !important;
   }
 
-  /* ── Remove excessive padding from main content area ── */
+  /* ── Main content: tight padding ── */
   [data-testid="stMainBlockContainer"] {
     padding-top: 1.5rem !important;
     padding-left: 2rem !important;
@@ -349,6 +366,16 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
+# ── PERSONA ROLE STATE ─────────────────────────────────────────────────────────
+ROLES = {
+    "Sales Rep":         {"icon":"👤","scope":"Territory · City-level",    "desc":"Your assigned territory — city-level HCP targeting"},
+    "Area Manager":      {"icon":"👥","scope":"Area · Multi-state",         "desc":"Team performance across your area states"},
+    "Regional Manager":  {"icon":"🏢","scope":"Region · Multi-region",      "desc":"Cross-region portfolio and pipeline oversight"},
+    "Head of Sales":     {"icon":"🎯","scope":"National · All regions",      "desc":"National strategy and quarterly call volume targets"},
+}
+if "persona_role" not in st.session_state:
+    st.session_state.persona_role = None
+
 # ── DATABASE ───────────────────────────────────────────────────────────────────
 # Production: set DATABASE_URL in Streamlit Cloud secrets dashboard.
 # Local: falls back to localhost PostgreSQL.
@@ -379,24 +406,92 @@ with st.spinner("Loading data…"):
     df      = load_hcp()
     drug_df = load_drug_trends()
 
+# ── ROLE PICKER (shown on first visit before dashboard) ───────────────────────
+if st.session_state.persona_role is None:
+    st.markdown("""
+    <div style='text-align:center;padding:3rem 0 2rem'>
+      <div style='font-size:0.75rem;font-weight:700;color:#003DA5;text-transform:uppercase;
+                  letter-spacing:0.15em;margin-bottom:0.6rem'>HCP Targeting & Brand Performance Analytics</div>
+      <div style='font-size:2rem;font-weight:700;color:#001F5B;letter-spacing:-0.03em;margin-bottom:0.4rem'>
+        Select your role to continue
+      </div>
+      <div style='font-size:0.9rem;color:#4B6A96'>
+        Your view, filters and planning horizons will be tailored to your role
+      </div>
+    </div>""", unsafe_allow_html=True)
+
+    c1, c2, c3, c4 = st.columns(4, gap="medium")
+    for col, (role, meta) in zip([c1,c2,c3,c4], ROLES.items()):
+        with col:
+            st.html(f"""
+            <div style='background:#FFFFFF;border-radius:16px;padding:2rem 1.4rem 1rem;
+                        text-align:center;border:1.5px solid #C8DCFF;
+                        box-shadow:0 2px 12px rgba(0,31,91,0.07);height:200px;
+                        display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px'>
+              <div style='font-size:2.4rem'>{meta["icon"]}</div>
+              <div style='font-size:1rem;font-weight:700;color:#001F5B'>{role}</div>
+              <div style='font-size:0.67rem;font-weight:700;color:#003DA5;text-transform:uppercase;
+                          letter-spacing:0.08em'>{meta["scope"]}</div>
+              <div style='font-size:0.74rem;color:#4B6A96;line-height:1.45;margin-top:4px'>{meta["desc"]}</div>
+            </div>""")
+            if st.button(f"Continue as {role}", key=f"pick_{role}", use_container_width=True):
+                st.session_state.persona_role = role
+                st.rerun()
+    st.stop()
+
+role = st.session_state.persona_role
+
 # ── SIDEBAR ────────────────────────────────────────────────────────────────────
 with st.sidebar:
-    st.markdown("""
-    <div style='text-align:center;padding:1.4rem 0 1rem'>
-      <div style='width:46px;height:46px;background:#003DA5;border-radius:13px;
-                  display:flex;align-items:center;justify-content:center;
-                  font-size:1.3rem;margin:0 auto'>🎯</div>
-      <div style='font-size:0.94rem;font-weight:700;color:#F5F5F7;margin-top:9px;
-                  letter-spacing:-0.01em'>HCP Intelligence</div>
-      <div style='font-size:0.68rem;color:#8E8E93;margin-top:2px'>Diabetes Portfolio</div>
+    rmeta = ROLES[role]
+    st.markdown(f"""
+    <div style='padding:1.2rem 0.4rem 0.8rem'>
+      <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                  letter-spacing:0.12em;margin-bottom:0.5rem'>Viewing as</div>
+      <div style='display:flex;align-items:center;gap:10px'>
+        <div style='font-size:1.6rem'>{rmeta["icon"]}</div>
+        <div>
+          <div style='font-size:0.95rem;font-weight:700;color:#E8F0FF;line-height:1.1'>{role}</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>{rmeta["scope"]}</div>
+        </div>
+      </div>
     </div>""", unsafe_allow_html=True)
+    if st.button("↩ Change Role", use_container_width=True, key="change_role"):
+        st.session_state.persona_role = None
+        st.rerun()
     st.markdown("---")
 
-    # State dropdown with full names
+    # ── Geographic filters — scoped by role ──────────────────────────────────
     state_abbrevs = sorted(df["state"].dropna().unique().tolist())
-    state_options = ["🌎 All States"] + [f"{state_full(s)} ({s})" for s in state_abbrevs]
-    sel_st_label  = st.selectbox("📍 State", state_options)
-    st_val = None if sel_st_label == "🌎 All States" else sel_st_label.split("(")[-1].rstrip(")")
+
+    if role in ("Sales Rep", "Area Manager"):
+        state_options = ["🌎 All States"] + [f"{state_full(s)} ({s})" for s in state_abbrevs]
+        sel_st_label  = st.selectbox("📍 State", state_options)
+        st_val = None if sel_st_label == "🌎 All States" else sel_st_label.split("(")[-1].rstrip(")")
+        sel_regions, region_states = [], []
+    elif role == "Regional Manager":
+        sel_regions = st.multiselect("🗺️ Region", list(US_REGIONS.keys()), default=["Northeast","Southeast"])
+        region_states = [s for r in sel_regions for s in US_REGIONS.get(r,[])]
+        st_val = None
+    else:  # Head of Sales — national, no geo filter
+        sel_regions = list(US_REGIONS.keys())
+        region_states = []
+        st_val = None
+
+    # ── Territory / City filter (Sales Rep only) ──────────────────────────────
+    city_val = None
+    if role == "Sales Rep" and st_val:
+        cities = sorted(df[df["state"] == st_val]["city"].dropna().unique().tolist())
+        city_options = ["🏙️ All Cities (Full State)"] + cities
+        sel_city = st.selectbox("🗺️ Territory (City)", city_options)
+        city_val = None if sel_city == "🏙️ All Cities (Full State)" else sel_city
+        if city_val:
+            # Show territory code for CRM realism
+            import hashlib
+            tc = int(hashlib.md5(f"{st_val}{city_val}".encode()).hexdigest(),16) % 9000 + 1000
+            st.markdown(f"<div style='font-size:0.62rem;color:#7B9AC0;margin-top:-8px;padding-left:2px'>Territory code: <strong style='color:#E8F0FF'>{st_val}-{tc}</strong></div>", unsafe_allow_html=True)
+    elif role not in ("Sales Rep",):
+        pass  # state handled above
 
     specs  = ["All Specialties"] + sorted(df["specialty"].dropna().unique().tolist())
     sel_sp = st.selectbox("🏥 Specialty", specs)
@@ -465,7 +560,13 @@ with st.sidebar:
 
 # ── FILTER ─────────────────────────────────────────────────────────────────────
 filt = df.copy()
-if st_val:   filt = filt[filt["state"]     == st_val]
+# Geographic scope by role
+if role == "Regional Manager" and region_states:
+    filt = filt[filt["state"].isin(region_states)]
+elif st_val:
+    filt = filt[filt["state"] == st_val]
+if city_val:
+    filt = filt[filt["city"] == city_val]
 if sp_val:   filt = filt[filt["specialty"] == sp_val]
 if seg_sel:  filt = filt[filt["segment"].isin(seg_sel)]
 filt = filt[filt["targeting_score"] >= min_sc]
@@ -473,27 +574,35 @@ if kol_only: filt = filt[filt["opinion_leader_payments"] > 0]
 filt = filt.sort_values("targeting_score", ascending=False).reset_index(drop=True)
 
 # ── HERO ───────────────────────────────────────────────────────────────────────
-terr_state = state_full(st_val) if st_val else "National"
+terr_state = state_full(st_val) if st_val else ("·".join(sel_regions) if sel_regions else "National")
+terr_city  = f" · {city_val}" if city_val else ""
 terr_spec  = sp_val or "All Specialties"
 st.markdown(f"""
-<div style='background:#FFFFFF;border-radius:18px;padding:1.8rem 2.2rem;
-            margin-bottom:1.2rem;box-shadow:0 2px 12px rgba(0,0,0,0.06)'>
-  <div style='display:flex;align-items:center;gap:0.85rem;margin-bottom:0.5rem'>
-    <div style='width:40px;height:40px;background:#003DA5;border-radius:11px;
+<div style='background:#FFFFFF;border-radius:16px;padding:1.4rem 1.8rem;
+            margin-bottom:1rem;box-shadow:0 1px 8px rgba(0,31,91,0.08)'>
+  <div style='display:flex;align-items:center;gap:0.85rem'>
+    <div style='width:40px;height:40px;background:#003DA5;border-radius:10px;
                 display:flex;align-items:center;justify-content:center;
                 font-size:1.2rem;flex-shrink:0'>🎯</div>
-    <div>
-      <div style='font-size:1.5rem;font-weight:700;color:#1D1D1F;
-                  letter-spacing:-0.03em;line-height:1.1'>
+    <div style='flex:1'>
+      <div style='font-size:1.3rem;font-weight:700;color:#001F5B;
+                  letter-spacing:-0.02em;line-height:1.1'>
         HCP Targeting &amp; Brand Performance Analytics
       </div>
-      <div style='font-size:0.8rem;color:#8E8E93;margin-top:3px;font-weight:400'>
-        {terr_state} &nbsp;·&nbsp; {terr_spec} &nbsp;·&nbsp; {datetime.now().strftime('%d %B %Y')}
+      <div style='font-size:0.78rem;color:#4B6A96;margin-top:3px'>
+        {terr_state}{terr_city} &nbsp;·&nbsp; {terr_spec} &nbsp;·&nbsp; {datetime.now().strftime('%d %B %Y')}
+      </div>
+    </div>
+    <div style='text-align:right;flex-shrink:0'>
+      <div style='font-size:0.6rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                  letter-spacing:0.1em'>Role</div>
+      <div style='font-size:0.88rem;font-weight:700;color:#003DA5;margin-top:2px'>
+        {rmeta["icon"]} {role}
       </div>
     </div>
   </div>
-  <div style='margin-top:0.8rem;display:flex;gap:6px;flex-wrap:wrap'>
-    {"".join(f'<span style="background:#E3EEFB;color:#001F5B;padding:3px 12px;border-radius:6px;font-size:0.65rem;font-weight:600;letter-spacing:0.04em;border:1px solid #C8DCFF">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
+  <div style='margin-top:0.8rem;display:flex;gap:5px;flex-wrap:wrap'>
+    {"".join(f'<span style="background:#E3EEFB;color:#001F5B;padding:2px 10px;border-radius:5px;font-size:0.62rem;font-weight:600;letter-spacing:0.04em;border:1px solid #C8DCFF">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
   </div>
 </div>""", unsafe_allow_html=True)
 
