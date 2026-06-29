@@ -842,7 +842,7 @@ with ac1:
         names = ", ".join(f"Dr {r['last_name']}" for _, r in at_risk.iterrows())
         st.html(f"""
         <div style="background:#FFF0EF;border-radius:14px;padding:1rem 1.3rem;
-                    border-left:4px solid #FF3B30;margin-bottom:0.5rem">
+                    border-left:4px solid #FF3B30;margin-bottom:0.5rem;min-height:110px">
           <div style="font-size:0.65rem;font-weight:700;color:#FF3B30;
                       text-transform:uppercase;letter-spacing:0.1em">
             ⚠️ At Risk — High Value HCPs with Declining Rx
@@ -858,7 +858,7 @@ with ac1:
         # Fallback: segment breakdown pulse
         st.html(f"""
         <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.3rem;
-                    border-left:4px solid #003DA5;margin-bottom:0.5rem;
+                    border-left:4px solid #003DA5;margin-bottom:0.5rem;min-height:110px;
                     box-shadow:0 1px 6px rgba(0,31,91,0.07)">
           <div style="font-size:0.65rem;font-weight:700;color:#003DA5;
                       text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">
@@ -896,7 +896,7 @@ with ac2:
         names2 = ", ".join(f"Dr {r['last_name']}" for _, r in breakthrough.iterrows())
         st.html(f"""
         <div style="background:#EDFBF1;border-radius:14px;padding:1rem 1.3rem;
-                    border-left:4px solid #34C759;margin-bottom:0.5rem">
+                    border-left:4px solid #34C759;margin-bottom:0.5rem;min-height:110px">
           <div style="font-size:0.65rem;font-weight:700;color:#1A7A35;
                       text-transform:uppercase;letter-spacing:0.1em">
             🚀 About to Break Through — Growth HCPs near Vol D8
@@ -914,7 +914,7 @@ with ac2:
         _pct = round(100 * _actionable / _total_n)
         st.html(f"""
         <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.3rem;
-                    border-left:4px solid #34C759;margin-bottom:0.5rem;
+                    border-left:4px solid #34C759;margin-bottom:0.5rem;min-height:110px;
                     box-shadow:0 1px 6px rgba(0,31,91,0.07)">
           <div style="font-size:0.65rem;font-weight:700;color:#1A7A35;
                       text-transform:uppercase;letter-spacing:0.1em;margin-bottom:5px">
