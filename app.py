@@ -580,8 +580,12 @@ def load_silent_pool():
     Gateway prescribers: HCPs who prescribe mainly Biguanides (Metformin)
     with minimal or zero advanced diabetes drugs (GLP-1, SGLT2, DPP-4).
     Their patient panels represent the silent pre-diabetic / early-T2D pool.
+    Returns empty DataFrame if fact_prescriptions is unavailable.
     """
-    return pd.read_sql("""
+    _EMPTY_COLS = ["npi","last_name","first_name","credential","specialty","state","city",
+                   "targeting_score","segment","biguanide_fills","glp1_fills","sglt2_fills",
+                   "dpp4_fills","insulin_fills","total_fills","biguanide_pct","gateway_type"]
+    _SQL = """
         WITH drug_pivot AS (
             SELECT
                 npi,
@@ -592,7 +596,7 @@ def load_silent_pool():
                 SUM(CASE WHEN drug_class = 'Insulin'         THEN tot_30day_fills ELSE 0 END) AS insulin_fills,
                 SUM(tot_30day_fills) AS total_fills
             FROM fact_prescriptions
-            WHERE year = 2022
+            {year_filter}
             GROUP BY npi
         )
         SELECT
@@ -619,7 +623,17 @@ def load_silent_pool():
               OR dp.biguanide_fills::NUMERIC / NULLIF(dp.total_fills,0) >= 0.50
           )
         ORDER BY dp.biguanide_fills DESC
-    """, get_conn())
+    """
+    try:
+        # First try: filter to 2022 only
+        result = pd.read_sql(_SQL.format(year_filter="WHERE year = 2022"), get_conn())
+        # If 2022 returns nothing, fall back to all years (data may use different year values)
+        if len(result) == 0:
+            result = pd.read_sql(_SQL.format(year_filter=""), get_conn())
+        return result
+    except Exception:
+        # fact_prescriptions may not exist in this deployment — return empty frame
+        return pd.DataFrame(columns=_EMPTY_COLS)
 
 with st.spinner("Loading data…"):
     df         = load_hcp()
@@ -1215,6 +1229,13 @@ def render_silent_pool(states, section_title):
       3. OTC-proxy HCPs — primary care with low diabetes Rx in high-T2D states
       4. Screening campaign priority — composite score for intervention targeting
     """
+    # Guard: if fact_prescriptions wasn't available, silent_df is empty
+    if len(silent_df) == 0:
+        st.info("Silent patient pool data is not yet available — "
+                "run the SQL pipeline (02_transform.sql → 04_targeting_score.sql) "
+                "to populate fact_prescriptions, then redeploy.")
+        return
+
     sp           = silent_df[silent_df["state"].isin(states)].copy() if states else silent_df.copy()
     scope_states = states if states else [s for s in CDC_T2D_PREV if s in STATE_POP_M]
     scope_df     = df[df["state"].isin(scope_states)].copy() if scope_states else df.copy()
