@@ -479,18 +479,58 @@ with st.sidebar:
         </div>""", unsafe_allow_html=True)
 
     elif role == "Area Manager":
-        state_options = ["🌎 All States"] + [f"{state_full(s)} ({s})" for s in state_abbrevs]
-        sel_st_label  = st.selectbox("📍 State", state_options)
-        st_val = None if sel_st_label == "🌎 All States" else sel_st_label.split("(")[-1].rstrip(")")
-        sel_regions, region_states = [], []
+        # Hard-assigned to Texas — same territory as the Sales Rep they manage
+        st_val = "TX"
+        sel_regions, region_states = ["Southwest"], US_REGIONS["Southwest"]
+        st.markdown("""
+        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
+          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                      letter-spacing:0.1em;margin-bottom:4px'>Assigned Area</div>
+          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 Texas (TX)</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+            Southwest Region · Managing Sales Rep territory TX-4821
+          </div>
+        </div>""", unsafe_allow_html=True)
+
     elif role == "Regional Manager":
-        sel_regions = st.multiselect("🗺️ Region", list(US_REGIONS.keys()), default=["Northeast","Southeast"])
-        region_states = [s for r in sel_regions for s in US_REGIONS.get(r,[])]
+        # Hard-assigned to Southwest region — no toggle
+        sel_regions  = ["Southwest"]
+        region_states = US_REGIONS["Southwest"]   # AZ, NM, OK, TX
         st_val = None
-    else:  # Head of Sales — national, no geo filter
-        sel_regions = list(US_REGIONS.keys())
+        st.markdown(f"""
+        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
+          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                      letter-spacing:0.1em;margin-bottom:4px'>Assigned Region</div>
+          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>🗺️ Southwest</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+            {" · ".join(US_REGIONS["Southwest"])} · 4 states
+          </div>
+        </div>""", unsafe_allow_html=True)
+
+    else:  # Head of Sales — national + optional deep dive
+        sel_regions   = list(US_REGIONS.keys())
         region_states = []
-        st_val = None
+        st_val        = None
+        st.markdown("""
+        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
+          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+                      letter-spacing:0.1em;margin-bottom:4px'>Scope</div>
+          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>🌐 National</div>
+          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>All 5 regions · 50 states</div>
+        </div>""", unsafe_allow_html=True)
+        with st.expander("🔍 Deep Dive (optional)"):
+            dive = st.selectbox("Drill into:", ["National (no filter)", "Region", "State"],
+                                key="hos_dive", label_visibility="collapsed")
+            if dive == "Region":
+                dive_reg  = st.selectbox("Select Region:", list(US_REGIONS.keys()), key="hos_reg")
+                sel_regions   = [dive_reg]
+                region_states = US_REGIONS[dive_reg]
+            elif dive == "State":
+                hos_st_opts = [f"{state_full(s)} ({s})" for s in state_abbrevs]
+                hos_st_sel  = st.selectbox("Select State:", hos_st_opts, key="hos_state")
+                st_val        = hos_st_sel.split("(")[-1].rstrip(")")
+                sel_regions   = []
+                region_states = []
 
     # ── Territory / City filter (Sales Rep only) ──────────────────────────────
     city_val = None
@@ -575,9 +615,9 @@ with st.sidebar:
 # ── FILTER ─────────────────────────────────────────────────────────────────────
 filt = df.copy()
 # Geographic scope by role
-if role == "Regional Manager" and region_states:
+if region_states:
     filt = filt[filt["state"].isin(region_states)]
-elif st_val:
+if st_val:
     filt = filt[filt["state"] == st_val]
 if city_val:
     filt = filt[filt["city"] == city_val]
@@ -1774,30 +1814,30 @@ with tab6:
     # AREA MANAGER — Weekly · Monthly · Quarterly (1 region)
     # ══════════════════════════════════════════════════════════════════════════
     elif role == "Area Manager":
-        region_sel = st.selectbox("Select your region:",
-                                  list(US_REGIONS.keys()), key="am_region")
+        # Hard-assigned: Texas, Southwest region
+        region_sel    = "Southwest"
+        am_state      = "TX"
         region_states = US_REGIONS[region_sel]
-        am_filt = df[df["state"].isin(region_states)].copy()
-        if st_val: am_filt = am_filt[am_filt["state"]==st_val]
-        if sp_val: am_filt = am_filt[am_filt["specialty"]==sp_val]
+        am_filt = df[df["state"] == am_state].copy()
+        if sp_val:  am_filt = am_filt[am_filt["specialty"]==sp_val]
         if seg_sel: am_filt = am_filt[am_filt["segment"].isin(seg_sel)]
         am_filt = am_filt[am_filt["targeting_score"]>=min_sc].sort_values(
-            "targeting_score",ascending=False)
+            "targeting_score", ascending=False)
 
         am_views = st.radio("View:", ["🗓️ Weekly Team Overview","📊 Monthly Coverage","🎯 Quarterly Strategy"],
                             horizontal=True, label_visibility="collapsed")
 
         a1,a2,a3,a4 = st.columns(4)
-        a1.metric(f"{region_sel} Region HCPs", f"{len(am_filt):,}")
+        a1.metric("Texas HCPs",  f"{len(am_filt):,}")
         a2.metric("High Value",  f"{(am_filt['segment']=='High Value').sum():,}")
         a3.metric("Growth",      f"{(am_filt['segment']=='Growth').sum():,}")
-        a4.metric("States Covered", str(len(region_states)))
+        a4.metric("Region",      "Southwest")
 
         if am_views == "🗓️ Weekly Team Overview":
-            st.markdown(f'<div class="sec">Weekly State-by-State Snapshot — {region_sel} Region</div>',
+            st.markdown('<div class="sec">Weekly Team Overview — Texas (TX)</div>',
                         unsafe_allow_html=True)
             state_summary=[]
-            for st_code in region_states:
+            for st_code in [am_state]:
                 sd=am_filt[am_filt["state"]==st_code]
                 if not len(sd): continue
                 ov=sum(1 for _,r in sd.head(100).iterrows() if call_due_status(r)[0]=="Overdue")
@@ -1826,10 +1866,10 @@ with tab6:
             st.dataframe(disp10,use_container_width=True,hide_index=False)
 
         elif am_views == "📊 Monthly Coverage":
-            st.markdown(f'<div class="sec">Monthly Coverage by State — {region_sel} Region</div>',
+            st.markdown('<div class="sec">Monthly Coverage — Texas (TX)</div>',
                         unsafe_allow_html=True)
             cover_rows=[]
-            for st_code in region_states:
+            for st_code in [am_state]:
                 sd=am_filt[am_filt["state"]==st_code]
                 if not len(sd): continue
                 ct=sum(1 for _,r in sd.head(200).iterrows()
@@ -1898,23 +1938,21 @@ with tab6:
     # REGIONAL MANAGER — Monthly · Quarterly (multi-region)
     # ══════════════════════════════════════════════════════════════════════════
     elif role == "Regional Manager":
-        rm_regions = st.multiselect("Select your regions:",
-                                    list(US_REGIONS.keys()),
-                                    default=list(US_REGIONS.keys())[:2],
-                                    key="rm_regions")
-        rm_states  = [s for r in rm_regions for s in US_REGIONS.get(r,[])]
-        rm_filt    = df[df["state"].isin(rm_states)].copy() if rm_states else df.copy()
-        if sp_val: rm_filt = rm_filt[rm_filt["specialty"]==sp_val]
-        if seg_sel: rm_filt= rm_filt[rm_filt["segment"].isin(seg_sel)]
+        # Hard-assigned: Southwest region (AZ, NM, OK, TX) — no toggle
+        rm_regions = ["Southwest"]
+        rm_states  = US_REGIONS["Southwest"]
+        rm_filt    = df[df["state"].isin(rm_states)].copy()
+        if sp_val:  rm_filt = rm_filt[rm_filt["specialty"]==sp_val]
+        if seg_sel: rm_filt = rm_filt[rm_filt["segment"].isin(seg_sel)]
 
         rm_views = st.radio("View:", ["📊 Monthly Region View","🎯 Quarterly Strategy"],
                             horizontal=True, label_visibility="collapsed")
 
         r1,r2,r3,r4=st.columns(4)
-        r1.metric("Total HCPs",  f"{len(rm_filt):,}")
-        r2.metric("High Value",  f"{(rm_filt['segment']=='High Value').sum():,}")
-        r3.metric("Regions",     str(len(rm_regions)))
-        r4.metric("States",      str(len(rm_states)))
+        r1.metric("Southwest HCPs", f"{len(rm_filt):,}")
+        r2.metric("High Value",     f"{(rm_filt['segment']=='High Value').sum():,}")
+        r3.metric("Region",         "Southwest")
+        r4.metric("States",         str(len(rm_states)))
 
         if rm_views == "📊 Monthly Region View":
             st.markdown('<div class="sec">Monthly Performance by Region</div>', unsafe_allow_html=True)
