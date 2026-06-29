@@ -44,16 +44,16 @@ def state_full(abbrev):
 
 # ── CONSTANTS ──────────────────────────────────────────────────────────────────
 SEG_COLORS = {
-    "High Value":   "#FF3B30",
-    "Growth":       "#34C759",
-    "Maintenance":  "#FF9500",
-    "Deprioritise": "#8E8E93",
+    "High Value":   "#C0392B",
+    "Growth":       "#1A7A40",
+    "Maintenance":  "#B45309",
+    "Deprioritise": "#6B7280",
 }
 SEG_BG = {
-    "High Value":   "#FFF0EF",
-    "Growth":       "#EDFBF1",
-    "Maintenance":  "#FFF8ED",
-    "Deprioritise": "#F5F5F7",
+    "High Value":   "#FEF2F2",
+    "Growth":       "#F0FDF4",
+    "Maintenance":  "#FFFBEB",
+    "Deprioritise": "#F9FAFB",
 }
 
 IQVIA_BLUE = "#003DA5"
@@ -68,8 +68,13 @@ US_REGIONS = {
 
 CHART_LAYOUT = dict(
     paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
-    font=dict(color="#1A2140",
+    font=dict(color="#374151",
               family='-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif'),
+    xaxis=dict(gridcolor="#F3F4F6", linecolor="#F3F4F6", tickfont=dict(size=11, color="#9CA3AF")),
+    yaxis=dict(gridcolor="#F3F4F6", linecolor="#F3F4F6", tickfont=dict(size=11, color="#9CA3AF")),
+    hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E5E7EB",
+                    font=dict(size=12, color="#111827")),
+    margin=dict(t=36, b=16, l=16, r=16),
 )
 
 # ── CALL CADENCE ───────────────────────────────────────────────────────────────
@@ -332,62 +337,39 @@ st.markdown("""
 <style>
   #MainMenu, footer, header { visibility: hidden; }
 
-  /* ══ SIDEBAR: locked open, never collapses ══════════════════════════════ */
-  /* Force the flex parent to never shrink the sidebar */
+  /* ── Sidebar: locked open ── */
   [data-testid="stAppViewContainer"] {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    overflow: visible !important;
+    display: flex !important; flex-wrap: nowrap !important; overflow: visible !important;
   }
-  /* Lock the sidebar itself */
   section[data-testid="stSidebar"] {
-    flex: 0 0 22rem !important;
-    min-width: 22rem !important;
-    max-width: 22rem !important;
-    width: 22rem !important;
-    transform: translateX(0) !important;
-    transition: none !important;
-    display: flex !important;
-    flex-direction: column !important;
-    visibility: visible !important;
-    overflow-y: auto !important;
-    overflow-x: hidden !important;
-    position: relative !important;
+    flex: 0 0 22rem !important; min-width: 22rem !important; max-width: 22rem !important;
+    width: 22rem !important; transform: translateX(0) !important; transition: none !important;
+    display: flex !important; flex-direction: column !important;
+    visibility: visible !important; overflow-y: auto !important;
+    overflow-x: hidden !important; position: relative !important;
   }
-  section[data-testid="stSidebar"] > div {
-    min-width: 22rem !important;
-    width: 22rem !important;
-  }
-  /* Hide the collapse button — sidebar stays open */
-  button[data-testid="stSidebarCollapseButton"],
-  [data-testid="collapsedControl"],
-  [data-testid="stSidebarCollapsedControl"],
-  button[title="Collapse sidebar"], button[title="Close sidebar"],
-  button[aria-label="Collapse sidebar"], button[aria-label="Close sidebar"] {
-    display: none !important;
-  }
+  section[data-testid="stSidebar"] > div { min-width: 22rem !important; width: 22rem !important; }
+  button[data-testid="stSidebarCollapseButton"], [data-testid="collapsedControl"],
+  [data-testid="stSidebarCollapsedControl"], button[title="Collapse sidebar"],
+  button[title="Close sidebar"], button[aria-label="Collapse sidebar"],
+  button[aria-label="Close sidebar"] { display: none !important; }
 
-  /* ── Main content: tight padding ── */
+  /* ── Layout ── */
   [data-testid="stMainBlockContainer"] {
-    padding-top: 1.5rem !important;
-    padding-left: 2rem !important;
-    padding-right: 2rem !important;
-    max-width: 100% !important;
+    padding-top: 1.5rem !important; padding-left: 2rem !important;
+    padding-right: 2rem !important; max-width: 100% !important;
   }
-
   html, body, [class*="css"] {
     font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
                  "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
   }
 
-  /* Background */
-  .stApp { background: #EEF3FC; }
+  /* ── Page background — near-white, not blue ── */
+  .stApp { background: #F5F5F7; }
 
-  /* ── Sidebar ── */
+  /* ── Sidebar — deep navy, unchanged ── */
   .stSidebar { background: #001F5B !important; border-right: none; }
   .stSidebar * { color: #E8F0FF !important; }
-
-  /* Selectbox / multiselect */
   .stSidebar [data-testid="stSelectbox"] div,
   .stSidebar [data-testid="stSelectbox"] span,
   .stSidebar [data-testid="stSelectbox"] p,
@@ -395,126 +377,137 @@ st.markdown("""
   .stSidebar [data-baseweb="select"] span,
   .stSidebar [data-baseweb="select"] input,
   .stSidebar [data-testid="stMultiSelect"] div,
-  .stSidebar [data-testid="stMultiSelect"] span {
-    color: #E8F0FF !important;
-    background-color: transparent !important;
-  }
+  .stSidebar [data-testid="stMultiSelect"] span { color: #E8F0FF !important; background-color: transparent !important; }
   .stSidebar [data-baseweb="select"] > div:first-child {
-    background-color: #0A3278 !important;
-    border-color: #1A4EA0 !important;
-    border-radius: 8px !important;
+    background-color: #0A3278 !important; border-color: rgba(255,255,255,0.08) !important; border-radius: 8px !important;
   }
   .stSidebar [data-baseweb="popover"] * { color: #1D1D1F !important; }
-
-  .stSidebar .stSelectbox label,
-  .stSidebar .stSlider label,
-  .stSidebar .stMultiSelect label {
-    color: #7B9AC0 !important; font-size: 0.67rem !important;
-    font-weight: 600 !important; text-transform: uppercase !important;
-    letter-spacing: 0.09em !important;
+  .stSidebar .stSelectbox label, .stSidebar .stSlider label, .stSidebar .stMultiSelect label {
+    color: #7B9AC0 !important; font-size: 0.67rem !important; font-weight: 600 !important;
+    text-transform: uppercase !important; letter-spacing: 0.09em !important;
   }
-  .stSidebar hr { border-color: #0A3278 !important; margin: 1rem 0 !important; }
+  .stSidebar hr { border-color: rgba(255,255,255,0.07) !important; margin: 0.9rem 0 !important; }
   .stSidebar [data-testid="stToggle"] {
-    margin-top: 1.1rem !important;
-    padding: 0.6rem 0 0.2rem !important;
-    border-top: 1px solid #0A3278 !important;
+    margin-top: 1rem !important; padding: 0.5rem 0 0.2rem !important;
+    border-top: 1px solid rgba(255,255,255,0.07) !important;
   }
   .stSidebar [data-testid="stToggle"] p,
   .stSidebar [data-testid="stToggle"] label {
-    font-size: 0.78rem !important;
-    font-weight: 500 !important;
-    text-transform: none !important;
-    letter-spacing: 0 !important;
-    color: #E8F0FF !important;
+    font-size: 0.78rem !important; font-weight: 500 !important;
+    text-transform: none !important; letter-spacing: 0 !important; color: #E8F0FF !important;
   }
   .stSidebar [data-testid="stSlider"] { padding-bottom: 0.6rem !important; }
 
-  /* ── KPI cards ── */
+  /* Sidebar buttons */
+  .stSidebar .stButton > button {
+    background: rgba(255,255,255,0.07) !important; color: #E8F0FF !important;
+    border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important;
+    font-weight: 600 !important; font-size: 0.82rem !important;
+    transition: all 0.18s ease !important;
+  }
+  .stSidebar .stButton > button:hover {
+    background: rgba(255,255,255,0.14) !important; color: #FFFFFF !important;
+    border-color: rgba(255,255,255,0.2) !important;
+  }
+
+  /* ── KPI metric cards ── */
   div[data-testid="metric-container"] {
-    background: #FFFFFF; border: none;
-    border-radius: 12px; padding: 1.2rem 1.4rem;
-    box-shadow: 0 1px 6px rgba(0,31,91,0.08);
+    background: #FFFFFF; border-radius: 14px; padding: 1.1rem 1.3rem;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+    border: 1px solid rgba(0,0,0,0.04);
+    transition: box-shadow 0.2s ease, transform 0.2s ease;
+    cursor: default;
+  }
+  div[data-testid="metric-container"]:hover {
+    box-shadow: 0 6px 20px rgba(0,0,0,0.09), 0 2px 6px rgba(0,0,0,0.04) !important;
+    transform: translateY(-2px) !important;
   }
   div[data-testid="metric-container"] label {
-    color: #7B8EA0 !important; font-size: 0.7rem !important;
-    font-weight: 600 !important; text-transform: uppercase !important;
-    letter-spacing: 0.07em !important;
+    color: #9CA3AF !important; font-size: 0.68rem !important;
+    font-weight: 600 !important; text-transform: uppercase !important; letter-spacing: 0.07em !important;
   }
   div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
-    font-size: 1.8rem !important; font-weight: 700 !important;
-    color: #001F5B !important; letter-spacing: -0.02em !important;
+    font-size: 1.75rem !important; font-weight: 700 !important;
+    color: #111827 !important; letter-spacing: -0.025em !important;
+  }
+  div[data-testid="metric-container"] [data-testid="stMetricDelta"] {
+    font-size: 0.72rem !important;
   }
 
-  /* ── Section labels ── */
+  /* ── Section labels — minimal, no heavy border ── */
   .sec {
-    font-size: 0.63rem; font-weight: 700; color: #003DA5;
-    text-transform: uppercase; letter-spacing: 0.12em;
-    margin-bottom: 0.9rem; padding-bottom: 0.5rem;
-    border-bottom: 1px solid #C8DCFF;
+    font-size: 0.6rem; font-weight: 700; color: #6B7280;
+    text-transform: uppercase; letter-spacing: 0.14em;
+    margin-bottom: 0.85rem; padding-bottom: 0.4rem;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
   }
 
-  /* ── Tabs ── */
+  /* ── Tabs — near-invisible pill container ── */
   .stTabs [data-baseweb="tab-list"] {
-    background: #DDE6F8; border-radius: 10px;
+    background: rgba(0,0,0,0.04); border-radius: 12px;
     padding: 3px; gap: 2px; border: none;
     box-shadow: none; margin-bottom: 1.2rem;
   }
   .stTabs [data-baseweb="tab"] {
-    background: transparent; color: #4B6A96;
-    border-radius: 8px; font-weight: 500; font-size: 0.84rem;
-    padding: 0.48rem 1rem;
+    background: transparent; color: #6B7280;
+    border-radius: 10px; font-weight: 500; font-size: 0.82rem;
+    padding: 0.45rem 1rem;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .stTabs [data-baseweb="tab"]:hover {
+    background: rgba(255,255,255,0.65) !important; color: #111827 !important;
   }
   .stTabs [aria-selected="true"] {
     background: #FFFFFF !important; color: #001F5B !important;
     font-weight: 600 !important;
-    box-shadow: 0 1px 4px rgba(0,31,91,0.12) !important;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.1) !important;
   }
 
-  /* ── Insight strip ── */
+  /* ── Insight strip — minimal ── */
   .insight {
-    background: #E3EEFB; border: none;
-    border-left: 3px solid #003DA5; border-radius: 10px;
-    padding: 1rem 1.2rem; font-size: 0.82rem;
-    color: #003DA5; line-height: 1.65; margin-top: 1rem;
+    background: rgba(0,31,91,0.03); border: none;
+    border-left: 2px solid rgba(0,61,165,0.3); border-radius: 8px;
+    padding: 0.85rem 1.1rem; font-size: 0.8rem;
+    color: #374151; line-height: 1.65; margin-top: 1rem;
   }
   .insight strong { color: #001F5B; }
 
-  /* ── Buttons ── */
+  /* ── Download button ── */
   .stDownloadButton > button {
-    background: #003DA5 !important; color: white !important;
+    background: #001F5B !important; color: white !important;
     border: none !important; border-radius: 8px !important;
-    font-weight: 600 !important; font-size: 0.84rem !important;
-    width: 100%; padding: 0.6rem 1.4rem !important;
+    font-weight: 600 !important; font-size: 0.82rem !important;
+    width: 100%; padding: 0.55rem 1.2rem !important;
+    transition: opacity 0.15s ease, transform 0.15s ease !important;
   }
-  /* Sidebar buttons — always visible against navy, not white */
-  .stSidebar .stButton > button {
-    background: #0A3278 !important;
-    color: #E8F0FF !important;
-    border: 1px solid #1A4EA0 !important;
-    border-radius: 8px !important;
-    font-weight: 600 !important;
-    font-size: 0.82rem !important;
-    transition: background 0.15s ease !important;
-  }
-  .stSidebar .stButton > button:hover {
-    background: #1A4EA0 !important;
-    color: #FFFFFF !important;
-    border-color: #2A5EB0 !important;
+  .stDownloadButton > button:hover {
+    opacity: 0.85 !important; transform: translateY(-1px) !important;
   }
 
-  /* ── Tables ── */
+  /* ── Tables — clean, no heavy shadows ── */
   .stDataFrame {
-    border-radius: 10px !important; border: none !important;
-    box-shadow: 0 1px 6px rgba(0,31,91,0.07) !important;
-    overflow: hidden !important;
+    border-radius: 12px !important; border: 1px solid rgba(0,0,0,0.05) !important;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04) !important; overflow: hidden !important;
+  }
+
+  /* ── Expander — subtle ── */
+  .streamlit-expanderHeader {
+    font-size: 0.78rem !important; font-weight: 500 !important;
+    color: #6B7280 !important; border-radius: 8px !important;
   }
 
   /* ── Profile badges ── */
   .badge {
-    display: inline-block; padding: 3px 11px; border-radius: 980px;
-    font-size: 0.67rem; font-weight: 600; letter-spacing: 0.03em;
-    margin-right: 5px; margin-top: 5px;
+    display: inline-block; padding: 2px 10px; border-radius: 980px;
+    font-size: 0.65rem; font-weight: 600; letter-spacing: 0.02em;
+    margin-right: 4px; margin-top: 4px;
   }
+
+  /* ── Smooth global interaction feel ── */
+  button, [role="tab"], .stSelectbox, .stMultiSelect, .stSlider {
+    transition: opacity 0.15s ease !important;
+  }
+  button:not([data-testid="stSidebarCollapseButton"]):hover { opacity: 0.88; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -824,8 +817,9 @@ terr_state = state_full(st_val) if st_val else ("·".join(sel_regions) if sel_re
 terr_city  = f" · {str(city_val).title()}" if city_val else ""
 terr_spec  = sp_val or "All Specialties"
 st.markdown(f"""
-<div style='background:#FFFFFF;border-radius:16px;padding:1.4rem 1.8rem;
-            margin-bottom:1rem;box-shadow:0 1px 8px rgba(0,31,91,0.08)'>
+<div style='background:#FFFFFF;border-radius:16px;padding:1.3rem 1.8rem;
+            margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.05);
+            border:1px solid rgba(0,0,0,0.04)'>
   <div style='display:flex;align-items:center;gap:0.85rem'>
     <div style='width:40px;height:40px;background:#003DA5;border-radius:10px;
                 display:flex;align-items:center;justify-content:center;
@@ -848,7 +842,7 @@ st.markdown(f"""
     </div>
   </div>
   <div style='margin-top:0.8rem;display:flex;gap:5px;flex-wrap:wrap'>
-    {"".join(f'<span style="background:#E3EEFB;color:#001F5B;padding:2px 10px;border-radius:5px;font-size:0.62rem;font-weight:600;letter-spacing:0.04em;border:1px solid #C8DCFF">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
+    {"".join(f'<span style="background:rgba(0,0,0,0.04);color:#6B7280;padding:2px 10px;border-radius:6px;font-size:0.61rem;font-weight:500;letter-spacing:0.03em">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
   </div>
 </div>""", unsafe_allow_html=True)
 
@@ -1064,13 +1058,17 @@ else:
 
 # Single st.html() flex row — both cards always stretch to the same height
 st.html(f"""
-<div style="display:flex;gap:12px;align-items:stretch;margin-bottom:0.5rem">
-  <div style="flex:1;border-radius:14px;padding:1rem 1.3rem;
-              border-left:4px solid {_left_border};background:{_left_bg};{_left_shadow}">
+<div style="display:flex;gap:10px;align-items:stretch;margin-bottom:0.5rem">
+  <div style="flex:1;border-radius:12px;padding:1rem 1.2rem;
+              border-top:2px solid {_left_border};background:#FFFFFF;
+              box-shadow:0 1px 3px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.05);
+              border-top:2px solid {_left_border}">
     {_left_inner}
   </div>
-  <div style="flex:1;border-radius:14px;padding:1rem 1.3rem;
-              border-left:4px solid {_right_border};background:{_right_bg};{_right_shadow}">
+  <div style="flex:1;border-radius:12px;padding:1rem 1.2rem;
+              border-top:2px solid {_right_border};background:#FFFFFF;
+              box-shadow:0 1px 3px rgba(0,0,0,0.05);border:1px solid rgba(0,0,0,0.05);
+              border-top:2px solid {_right_border}">
     {_right_inner}
   </div>
 </div>
@@ -1101,9 +1099,10 @@ else:
 
         with col:
             st.html(f"""
-            <div style="background:#FFFFFF;border-radius:16px;padding:16px 18px;
-                        height:100%;border-top:3px solid {sc_};
-                        box-shadow:0 2px 10px rgba(0,0,0,0.06)">
+            <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
+                        height:100%;border-top:2px solid {sc_};
+                        box-shadow:0 1px 3px rgba(0,0,0,0.05);
+                        border:1px solid rgba(0,0,0,0.05);border-top:2px solid {sc_}">
               <div style="font-size:0.6rem;font-weight:700;color:#8E8E93;
                           text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px">
                 Priority #{i+1}
