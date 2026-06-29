@@ -70,12 +70,12 @@ CHART_LAYOUT = dict(
     paper_bgcolor="#FFFFFF", plot_bgcolor="#FFFFFF",
     font=dict(color="#374151",
               family='-apple-system,BlinkMacSystemFont,"SF Pro Display","Helvetica Neue",sans-serif'),
-    xaxis=dict(gridcolor="#F3F4F6", linecolor="#F3F4F6", tickfont=dict(size=11, color="#9CA3AF")),
-    yaxis=dict(gridcolor="#F3F4F6", linecolor="#F3F4F6", tickfont=dict(size=11, color="#9CA3AF")),
     hoverlabel=dict(bgcolor="#FFFFFF", bordercolor="#E5E7EB",
                     font=dict(size=12, color="#111827")),
-    margin=dict(t=36, b=16, l=16, r=16),
 )
+# Reusable axis style — merge into update_layout calls individually
+_AXIS = dict(gridcolor="#F3F4F6", linecolor="#F3F4F6",
+             tickfont=dict(size=11, color="#9CA3AF"))
 
 # ── CALL CADENCE ───────────────────────────────────────────────────────────────
 CALL_CADENCE_DAYS = {
@@ -360,9 +360,15 @@ st.markdown("""
     padding-right: 2rem !important; max-width: 100% !important;
   }
   html, body, [class*="css"] {
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-                 "SF Pro Text", "Helvetica Neue", Arial, sans-serif !important;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text",
+                 "Helvetica Neue", Arial, sans-serif !important;
+    -webkit-font-smoothing: antialiased !important;
+    -moz-osx-font-smoothing: grayscale !important;
+    font-size: 14px !important;
+    color: #1D1D1F !important;
   }
+  p, span, div, label { line-height: 1.6 !important; }
+  h1, h2, h3 { letter-spacing: -0.02em !important; font-weight: 600 !important; }
 
   /* ── Page background — near-white, not blue ── */
   .stApp { background: #F5F5F7; }
@@ -716,7 +722,7 @@ with st.sidebar:
     top = [s for s in CORE_DIABETES_SPECS if s in all_specs]
     rest = [s for s in all_specs if s not in top]
     specs  = ["All Prescribing Specialties"] + top + (["─────────────"] if rest else []) + rest
-    sel_sp = st.selectbox("🏥 Specialty", specs)
+    sel_sp = st.selectbox("Specialty", specs)
     sp_val = None if sel_sp in ("All Prescribing Specialties", "─────────────") else sel_sp
     st.markdown("""
     <div style='font-size:0.61rem;color:#7B9AC0;line-height:1.55;margin-top:-6px;padding:6px 2px 4px'>
@@ -729,7 +735,7 @@ with st.sidebar:
         ["High Value","Growth","Maintenance","Deprioritise"],
         default=["High Value","Growth"])
 
-    min_sc   = st.slider("⚡ Min Score", 0.0, 1.0, 0.5, 0.01)
+    min_sc   = st.slider("Min Score", 0.0, 1.0, 0.5, 0.01)
     kol_only = st.toggle("⭐ KOL / Speaker Only", value=False)
 
     st.markdown("---")
@@ -1130,15 +1136,15 @@ st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
 tab6, tab1, tab2, tab3, tab4, tab5, tab7, tab8, tab9 = st.tabs([
-    "🗓️  Rep Planner",
-    "📋  Diabetes Call List",
-    "📈  Market Intelligence",
-    "🗺️  Territory Map",
-    "⭐  Opinion Leaders",
-    "🩺  HCP Profile",
-    "🧠  Predictive Analytics",
-    "💰  ROI Engine",
-    "🕸️  Influence Network",
+    "Rep Planner",
+    "Call List",
+    "Market Intelligence",
+    "Territory Map",
+    "Opinion Leaders",
+    "HCP Profile",
+    "Predictive Analytics",
+    "ROI Engine",
+    "Influence Network",
 ])
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -2084,7 +2090,7 @@ with tab6:
         am_filt = am_filt[am_filt["targeting_score"]>=min_sc].sort_values(
             "targeting_score", ascending=False)
 
-        am_views = st.radio("View:", ["🗓️ Weekly Team Overview","📊 Monthly Coverage","🎯 Quarterly Strategy"],
+        am_views = st.radio("View:", ["Weekly Team Overview","Monthly Coverage","Quarterly Strategy"],
                             horizontal=True, label_visibility="collapsed")
 
         a1,a2,a3,a4 = st.columns(4)
@@ -2093,7 +2099,7 @@ with tab6:
         a3.metric("Growth",      f"{(am_filt['segment']=='Growth').sum():,}")
         a4.metric("Region",      "Southwest")
 
-        if am_views == "🗓️ Weekly Team Overview":
+        if am_views == "Weekly Team Overview":
             st.markdown('<div class="sec">Weekly Team Overview — Texas (TX)</div>',
                         unsafe_allow_html=True)
             state_summary=[]
@@ -2125,7 +2131,7 @@ with tab6:
             disp10.index=range(1,len(disp10)+1)
             st.dataframe(disp10,use_container_width=True,hide_index=False)
 
-        elif am_views == "📊 Monthly Coverage":
+        elif am_views == "Monthly Coverage":
             st.markdown('<div class="sec">Monthly Coverage — Texas (TX)</div>',
                         unsafe_allow_html=True)
             cover_rows=[]
@@ -2205,7 +2211,7 @@ with tab6:
         if sp_val:  rm_filt = rm_filt[rm_filt["specialty"]==sp_val]
         if seg_sel: rm_filt = rm_filt[rm_filt["segment"].isin(seg_sel)]
 
-        rm_views = st.radio("View:", ["📊 Monthly Region View","🎯 Quarterly Strategy"],
+        rm_views = st.radio("View:", ["Monthly Region View","Quarterly Strategy"],
                             horizontal=True, label_visibility="collapsed")
 
         r1,r2,r3,r4=st.columns(4)
@@ -2214,7 +2220,7 @@ with tab6:
         r3.metric("Region",         "Southwest")
         r4.metric("States",         str(len(rm_states)))
 
-        if rm_views == "📊 Monthly Region View":
+        if rm_views == "Monthly Region View":
             st.markdown('<div class="sec">Monthly Performance by Region</div>', unsafe_allow_html=True)
             region_rows=[]
             for reg in rm_regions:
