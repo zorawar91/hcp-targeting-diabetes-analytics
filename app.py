@@ -1077,7 +1077,7 @@ with tab4:
         kd["Total $"]    = kd["Total $"].apply(lambda x: f"${x:,.0f}")
         kd["Fills 2022"] = kd["Fills 2022"].apply(lambda x: f"{x:,.0f}" if pd.notna(x) else "—")
         kd["Score"]      = kd["Score"].apply(lambda x: f"{x:.3f}")
-        sk = kd.style.applymap(lambda v: {
+        sk = kd.style.map(lambda v: {
             "High Value":  "background-color:#FFF0EF;color:#CC2200;font-weight:700",
             "Growth":      "background-color:#EDFBF1;color:#1A7A35;font-weight:700",
             "Maintenance": "background-color:#FFF8ED;color:#CC7700",
@@ -1253,7 +1253,7 @@ with tab5:
             st.markdown('<div class="sec">Brand Priority Recommendations</div>',
                         unsafe_allow_html=True)
             recs_df = brand_recs(hcp)
-            st.dataframe(recs_df.style.applymap(
+            st.dataframe(recs_df.style.map(
                 lambda v: "color:#0071E3;font-weight:600" if "Detail" in str(v)
                 else ("color:#CC2200;font-weight:600" if "Defend" in str(v)
                 else ("color:#CC7700;font-weight:600" if "Advisory" in str(v) else "")),
@@ -1289,7 +1289,7 @@ with tab5:
                 unsafe_allow_html=True)
             calls_df = sim_calls(hcp.get("npi",42))
             st.dataframe(
-                calls_df.style.applymap(
+                calls_df.style.map(
                     lambda v: "color:#0071E3;font-weight:600" if "F2F" in str(v) or "P2P" in str(v)
                     else ("color:#34C759;font-weight:600" if "Virtual" in str(v) else ""),
                     subset=["Type"]
