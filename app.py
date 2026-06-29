@@ -2167,11 +2167,12 @@ with tab6:
         region_sel    = "Southwest"
         am_state      = "TX"
         region_states = US_REGIONS[region_sel]
+        # AM planner intentionally omits the min_score threshold — managers need
+        # the full segment mix (Growth, Maintenance) not just high-scoring HCPs.
         am_filt = df[df["state"] == am_state].copy()
         if sp_val:  am_filt = am_filt[am_filt["specialty"]==sp_val]
         if seg_sel: am_filt = am_filt[am_filt["segment"].isin(seg_sel)]
-        am_filt = am_filt[am_filt["targeting_score"]>=min_sc].sort_values(
-            "targeting_score", ascending=False)
+        am_filt = am_filt.sort_values("targeting_score", ascending=False)
 
         am_views = st.radio("View:", ["Weekly Team Overview","Monthly Coverage","Quarterly Strategy"],
                             horizontal=True, label_visibility="collapsed")
