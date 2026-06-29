@@ -373,9 +373,12 @@ st.markdown("""
   /* ── Page background — near-white, not blue ── */
   .stApp { background: #F5F5F7; }
 
-  /* ── Sidebar — deep navy, unchanged ── */
-  .stSidebar { background: #001F5B !important; border-right: none; }
-  .stSidebar * { color: #E8F0FF !important; }
+  /* ── Sidebar — Apple dark charcoal ── */
+  .stSidebar {
+    background: #1C1C1E !important;
+    border-right: 1px solid rgba(255,255,255,0.06) !important;
+  }
+  .stSidebar * { color: #F5F5F7 !important; }
   .stSidebar [data-testid="stSelectbox"] div,
   .stSidebar [data-testid="stSelectbox"] span,
   .stSidebar [data-testid="stSelectbox"] p,
@@ -383,37 +386,40 @@ st.markdown("""
   .stSidebar [data-baseweb="select"] span,
   .stSidebar [data-baseweb="select"] input,
   .stSidebar [data-testid="stMultiSelect"] div,
-  .stSidebar [data-testid="stMultiSelect"] span { color: #E8F0FF !important; background-color: transparent !important; }
+  .stSidebar [data-testid="stMultiSelect"] span {
+    color: #F5F5F7 !important; background-color: transparent !important;
+  }
   .stSidebar [data-baseweb="select"] > div:first-child {
-    background-color: #0A3278 !important; border-color: rgba(255,255,255,0.08) !important; border-radius: 8px !important;
+    background-color: rgba(255,255,255,0.07) !important;
+    border-color: rgba(255,255,255,0.1) !important; border-radius: 10px !important;
   }
   .stSidebar [data-baseweb="popover"] * { color: #1D1D1F !important; }
   .stSidebar .stSelectbox label, .stSidebar .stSlider label, .stSidebar .stMultiSelect label {
-    color: #7B9AC0 !important; font-size: 0.67rem !important; font-weight: 600 !important;
-    text-transform: uppercase !important; letter-spacing: 0.09em !important;
+    color: #8E8E93 !important; font-size: 0.65rem !important; font-weight: 600 !important;
+    text-transform: uppercase !important; letter-spacing: 0.1em !important;
   }
-  .stSidebar hr { border-color: rgba(255,255,255,0.07) !important; margin: 0.9rem 0 !important; }
+  .stSidebar hr { border-color: rgba(255,255,255,0.07) !important; margin: 0.8rem 0 !important; }
   .stSidebar [data-testid="stToggle"] {
-    margin-top: 1rem !important; padding: 0.5rem 0 0.2rem !important;
+    margin-top: 0.8rem !important; padding: 0.5rem 0 0.2rem !important;
     border-top: 1px solid rgba(255,255,255,0.07) !important;
   }
   .stSidebar [data-testid="stToggle"] p,
   .stSidebar [data-testid="stToggle"] label {
     font-size: 0.78rem !important; font-weight: 500 !important;
-    text-transform: none !important; letter-spacing: 0 !important; color: #E8F0FF !important;
+    text-transform: none !important; letter-spacing: 0 !important; color: #EBEBF5 !important;
   }
   .stSidebar [data-testid="stSlider"] { padding-bottom: 0.6rem !important; }
 
   /* Sidebar buttons */
   .stSidebar .stButton > button {
-    background: rgba(255,255,255,0.07) !important; color: #E8F0FF !important;
-    border: 1px solid rgba(255,255,255,0.12) !important; border-radius: 8px !important;
-    font-weight: 600 !important; font-size: 0.82rem !important;
+    background: rgba(255,255,255,0.08) !important; color: #F5F5F7 !important;
+    border: 1px solid rgba(255,255,255,0.1) !important; border-radius: 10px !important;
+    font-weight: 500 !important; font-size: 0.82rem !important;
     transition: all 0.18s ease !important;
   }
   .stSidebar .stButton > button:hover {
-    background: rgba(255,255,255,0.14) !important; color: #FFFFFF !important;
-    border-color: rgba(255,255,255,0.2) !important;
+    background: rgba(255,255,255,0.13) !important; color: #FFFFFF !important;
+    border-color: rgba(255,255,255,0.18) !important;
   }
 
   /* ── KPI metric cards ── */
@@ -597,13 +603,12 @@ with st.sidebar:
     rmeta = ROLES[role]
     st.markdown(f"""
     <div style='padding:1.2rem 0.4rem 0.8rem'>
-      <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+      <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                   letter-spacing:0.12em;margin-bottom:0.5rem'>Viewing as</div>
       <div style='display:flex;align-items:center;gap:10px'>
-        <div style='font-size:1.6rem'>{rmeta["icon"]}</div>
         <div>
-          <div style='font-size:0.95rem;font-weight:700;color:#E8F0FF;line-height:1.1'>{role}</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>{rmeta["scope"]}</div>
+          <div style='font-size:0.95rem;font-weight:600;color:#F5F5F7;line-height:1.1'>{role}</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>{rmeta["scope"]}</div>
         </div>
       </div>
     </div>""", unsafe_allow_html=True)
@@ -620,11 +625,11 @@ with st.sidebar:
         st_val = "TX"
         sel_regions, region_states = [], []
         st.markdown("""
-        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
-          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+        <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:0.5rem;border:1px solid rgba(255,255,255,0.08)'>
+          <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                       letter-spacing:0.1em;margin-bottom:4px'>Assigned Territory</div>
-          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 Texas (TX)</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+          <div style='font-size:0.88rem;font-weight:600;color:#F5F5F7'>Texas (TX)</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>
             Southwest Region · Territory TX-4821
           </div>
         </div>""", unsafe_allow_html=True)
@@ -634,11 +639,11 @@ with st.sidebar:
         st_val = "TX"
         sel_regions, region_states = ["Southwest"], US_REGIONS["Southwest"]
         st.markdown("""
-        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
-          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+        <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:0.5rem;border:1px solid rgba(255,255,255,0.08)'>
+          <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                       letter-spacing:0.1em;margin-bottom:4px'>Assigned Area</div>
-          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 Texas (TX)</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+          <div style='font-size:0.88rem;font-weight:600;color:#F5F5F7'>Texas (TX)</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>
             Southwest Region · Managing Sales Rep territory TX-4821
           </div>
         </div>""", unsafe_allow_html=True)
@@ -649,11 +654,11 @@ with st.sidebar:
         region_states = US_REGIONS["Southwest"]   # AZ, NM, OK, TX
         st_val = None
         st.markdown(f"""
-        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
-          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+        <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:0.5rem;border:1px solid rgba(255,255,255,0.08)'>
+          <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                       letter-spacing:0.1em;margin-bottom:4px'>Assigned Region</div>
-          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>🗺️ Southwest</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+          <div style='font-size:0.88rem;font-weight:600;color:#F5F5F7'>Southwest</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>
             {" · ".join(US_REGIONS["Southwest"])} · 4 states
           </div>
         </div>""", unsafe_allow_html=True)
@@ -663,13 +668,13 @@ with st.sidebar:
         region_states = []
         st_val        = None
         st.markdown("""
-        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
-          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+        <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:0.5rem;border:1px solid rgba(255,255,255,0.08)'>
+          <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                       letter-spacing:0.1em;margin-bottom:4px'>Scope</div>
-          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>🌐 National</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>All 5 regions · 50 states</div>
+          <div style='font-size:0.88rem;font-weight:600;color:#F5F5F7'>National</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>All 5 regions · 50 states</div>
         </div>""", unsafe_allow_html=True)
-        with st.expander("🔍 Deep Dive (optional)"):
+        with st.expander("Deep Dive (optional)"):
             dive = st.selectbox("Drill into:", ["National (no filter)", "Region", "State"],
                                 key="hos_dive", label_visibility="collapsed")
             if dive == "Region":
@@ -700,11 +705,11 @@ with st.sidebar:
         import hashlib
         tc = int(hashlib.md5(f"{st_val}{rep_city_raw}".encode()).hexdigest(),16) % 9000 + 1000
         st.markdown(f"""
-        <div style='background:#0A3278;border-radius:10px;padding:10px 14px;margin-bottom:0.5rem'>
-          <div style='font-size:0.58rem;font-weight:700;color:#7B9AC0;text-transform:uppercase;
+        <div style='background:rgba(255,255,255,0.06);border-radius:10px;padding:10px 14px;margin-bottom:0.5rem;border:1px solid rgba(255,255,255,0.08)'>
+          <div style='font-size:0.58rem;font-weight:600;color:#8E8E93;text-transform:uppercase;
                       letter-spacing:0.1em;margin-bottom:4px'>Assigned City Territory</div>
-          <div style='font-size:0.88rem;font-weight:700;color:#E8F0FF'>📍 {city_display}, TX</div>
-          <div style='font-size:0.62rem;color:#7B9AC0;margin-top:2px'>
+          <div style='font-size:0.88rem;font-weight:600;color:#F5F5F7'>{city_display}, TX</div>
+          <div style='font-size:0.62rem;color:#8E8E93;margin-top:2px'>
             Territory Code: TX-{tc}
           </div>
         </div>""", unsafe_allow_html=True)
@@ -736,11 +741,11 @@ with st.sidebar:
         default=["High Value","Growth"])
 
     min_sc   = st.slider("Min Score", 0.0, 1.0, 0.5, 0.01)
-    kol_only = st.toggle("⭐ KOL / Speaker Only", value=False)
+    kol_only = st.toggle("KOL / Speaker Only", value=False)
 
     st.markdown("---")
 
-    with st.expander("📊 Score Methodology"):
+    with st.expander("Score Methodology"):
         st.markdown("""
         <div style='font-size:0.72rem;color:#F5F5F7;line-height:1.7'>
           <div style='font-weight:700;color:#FFFFFF;margin-bottom:0.5rem'>
@@ -1999,13 +2004,13 @@ with tab6:
     # ══════════════════════════════════════════════════════════════════════════
     if role == "Sales Rep":
         if True:
-            rep_views = st.radio("Plan View:", ["📅 Daily Plan","🗓️ Weekly Calendar","📊 Monthly Coverage"],
+            rep_views = st.radio("Plan View:", ["Daily Plan","Weekly Calendar","Monthly Coverage"],
                                  horizontal=True, label_visibility="collapsed")
             st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
             rep_filt = filt.copy()
 
             # ── Daily ─────────────────────────────────────────────────────────
-            if rep_views == "📅 Daily Plan":
+            if rep_views == "Daily Plan":
                 st.markdown('<div class="sec">Today\'s Call Plan — ' + state_full(st_val) + ' Territory · ' + datetime.now().strftime("%A, %-d %B %Y") + '</div>',
                             unsafe_allow_html=True)
                 hv  = rep_filt[rep_filt["segment"]=="High Value"].head(2)
@@ -2059,7 +2064,7 @@ with tab6:
                             </div>''')
 
             # ── Weekly ────────────────────────────────────────────────────────
-            elif rep_views == "🗓️ Weekly Calendar":
+            elif rep_views == "Weekly Calendar":
                 st.markdown('<div class="sec">Weekly Call Calendar — ' + state_full(st_val) + ' Territory</div>',
                             unsafe_allow_html=True)
                 today   = datetime.now()
