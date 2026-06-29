@@ -736,9 +736,9 @@ with st.sidebar:
       internists & GPs handle the majority of T2D volume.
     </div>""", unsafe_allow_html=True)
 
-    seg_sel = st.multiselect("🏷️ Segment",
+    seg_sel = st.multiselect("Segment",
         ["High Value","Growth","Maintenance","Deprioritise"],
-        default=["High Value","Growth"])
+        default=["High Value","Growth","Maintenance"])
 
     min_sc   = st.slider("Min Score", 0.0, 1.0, 0.5, 0.01)
     kol_only = st.toggle("KOL / Speaker Only", value=False)
@@ -2007,11 +2007,12 @@ with tab6:
             rep_views = st.radio("Plan View:", ["Daily Plan","Weekly Calendar","Monthly Coverage"],
                                  horizontal=True, label_visibility="collapsed")
             st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
-            # Rep Planner pulls from the full state (TX) so Growth / Maintenance
-            # HCPs outside the city-level filter still appear in the call plan.
-            # A rep's territory spans the state, not just their home city.
+            # Rep Planner pulls ALL segments from full state (TX) — no seg_sel
+            # filter here. The daily plan logic picks HV / Growth / Maintenance
+            # itself. In major markets like Houston, global decile ranking pushes
+            # most high-prescribers into High Value, so the pool must include all
+            # segments to surface a realistic mix of call types.
             _rep_base = df[df["state"] == st_val].copy() if st_val else df.copy()
-            if seg_sel:  _rep_base = _rep_base[_rep_base["segment"].isin(seg_sel)]
             if sp_val:   _rep_base = _rep_base[_rep_base["specialty"] == sp_val]
             if kol_only: _rep_base = _rep_base[_rep_base["opinion_leader_payments"] > 0]
             _rep_base = _rep_base.sort_values("targeting_score", ascending=False).reset_index(drop=True)
@@ -2023,6 +2024,10 @@ with tab6:
                             unsafe_allow_html=True)
                 hv  = rep_filt[rep_filt["segment"]=="High Value"].head(2)
                 gr  = rep_filt[rep_filt["segment"]=="Growth"].head(2)
+                # Fallback: use Maintenance HCPs if Growth pool is thin in this territory
+                if len(gr) < 2:
+                    maint_fill = rep_filt[rep_filt["segment"]=="Maintenance"].head(2 - len(gr))
+                    gr = pd.concat([gr, maint_fill]).reset_index(drop=True)
                 eod = rep_filt[rep_filt["opinion_leader_payments"]>0].head(1)
                 if len(eod)==0: eod = rep_filt[rep_filt["segment"]=="Maintenance"].head(1)
 
