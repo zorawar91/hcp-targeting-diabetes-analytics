@@ -8,3 +8,4 @@ __pycache__/
 
 # Streamlit secrets — NEVER commit real credentials
 .streamlit/secrets.toml
+data/python/neon_import.py
