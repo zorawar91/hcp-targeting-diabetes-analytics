@@ -286,8 +286,8 @@ st.markdown("""
 # ── DATABASE ───────────────────────────────────────────────────────────────────
 # Production: set DATABASE_URL in Streamlit Cloud secrets dashboard.
 # Local: falls back to localhost PostgreSQL.
-@st.cache_resource(show_spinner=False)
 def get_conn():
+    """Always create a fresh connection — Neon is serverless and drops idle connections."""
     try:
         dsn = st.secrets["DATABASE_URL"]
     except Exception:
