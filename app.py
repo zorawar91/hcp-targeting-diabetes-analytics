@@ -6,12 +6,12 @@ Run:  python3 -m streamlit run app.py
 """
 
 import streamlit as st
-import psycopg2
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime, timedelta
+from sqlalchemy import create_engine, text
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -537,13 +537,26 @@ if "persona_role" not in st.session_state:
 # ── DATABASE ───────────────────────────────────────────────────────────────────
 # Production: set DATABASE_URL in Streamlit Cloud secrets dashboard.
 # Local: falls back to localhost PostgreSQL.
-def get_conn():
-    """Always create a fresh connection — Neon is serverless and drops idle connections."""
+# Uses SQLAlchemy connection pool so a single connection is reused across reruns
+# (avoids Neon serverless cold-start penalty on every interaction).
+@st.cache_resource
+def get_engine():
     try:
         dsn = st.secrets["DATABASE_URL"]
     except Exception:
         dsn = "postgresql://postgres:newpassword123@localhost:5432/postgres"
-    return psycopg2.connect(dsn)
+    return create_engine(
+        dsn,
+        pool_size=2,          # keep 2 connections warm
+        max_overflow=3,       # allow up to 3 extra under burst
+        pool_pre_ping=True,   # auto-heal dropped Neon connections
+        pool_recycle=1800,    # recycle connections every 30 min
+        connect_args={"connect_timeout": 10},
+    )
+
+def get_conn():
+    """Return a SQLAlchemy engine — drop-in for pd.read_sql calls."""
+    return get_engine()
 
 @st.cache_data(ttl=3600, show_spinner=False)
 def load_hcp():
