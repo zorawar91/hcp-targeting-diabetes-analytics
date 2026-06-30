@@ -2022,169 +2022,440 @@ with tab6:
     st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
-    # SALES REP — Daily / Weekly / Monthly
+    # SALES REP — Focused 3-section view: Today · My HCPs · My Stats
     # ══════════════════════════════════════════════════════════════════════════
     if role == "Sales Rep":
-        if True:
-            rep_views = st.radio("Plan View:", ["Daily Plan","Weekly Calendar","Monthly Coverage"],
-                                 horizontal=True, label_visibility="collapsed")
-            st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
-            # Rep Planner pulls ALL segments from full state (TX) — no seg_sel
-            # filter here. The daily plan logic picks HV / Growth / Maintenance
-            # itself. In major markets like Houston, global decile ranking pushes
-            # most high-prescribers into High Value, so the pool must include all
-            # segments to surface a realistic mix of call types.
-            _rep_base = df[df["state"] == st_val].copy() if st_val else df.copy()
-            if sp_val:   _rep_base = _rep_base[_rep_base["specialty"] == sp_val]
-            if kol_only: _rep_base = _rep_base[_rep_base["opinion_leader_payments"] > 0]
-            _rep_base = _rep_base.sort_values("targeting_score", ascending=False).reset_index(drop=True)
-            rep_filt = _rep_base
+        # Base pool: full territory, sorted by score
+        _rep_base = df[df["state"] == st_val].copy() if st_val else df.copy()
+        if sp_val:   _rep_base = _rep_base[_rep_base["specialty"] == sp_val]
+        if kol_only: _rep_base = _rep_base[_rep_base["opinion_leader_payments"] > 0]
+        rep_filt = _rep_base.sort_values("targeting_score", ascending=False).reset_index(drop=True)
 
-            # ── Daily ─────────────────────────────────────────────────────────
-            if rep_views == "Daily Plan":
-                st.markdown('<div class="sec">Today\'s Call Plan — ' + state_full(st_val) + ' Territory · ' + datetime.now().strftime("%A, %-d %B %Y") + '</div>',
-                            unsafe_allow_html=True)
-                hv  = rep_filt[rep_filt["segment"]=="High Value"].head(2)
-                gr  = rep_filt[rep_filt["segment"]=="Growth"].head(2)
-                # Fallback: use Maintenance HCPs if Growth pool is thin in this territory
-                if len(gr) < 2:
-                    maint_fill = rep_filt[rep_filt["segment"]=="Maintenance"].head(2 - len(gr))
-                    gr = pd.concat([gr, maint_fill]).reset_index(drop=True)
-                eod = rep_filt[rep_filt["opinion_leader_payments"]>0].head(1)
-                if len(eod)==0: eod = rep_filt[rep_filt["segment"]=="Maintenance"].head(1)
+        now   = datetime.now()
+        today = now.date()
+        terr  = state_full(st_val) if st_val else "All States"
 
-                m1,m2,m3,m4 = st.columns(4)
-                m1.metric("Calls Today", str(len(hv)+len(gr)+len(eod)))
-                m2.metric("High Value", str(len(hv)))
-                m3.metric("Growth", str(len(gr)))
-                m4.metric("KOL / EOD", str(len(eod)))
+        # ── Territory header ──────────────────────────────────────────────────
+        hv_n   = int((rep_filt["segment"]=="High Value").sum())
+        gr_n   = int((rep_filt["segment"]=="Growth").sum())
+        ov_n   = sum(1 for _,r in rep_filt.head(200).iterrows() if call_due_status(r)[0]=="Overdue")
+        due_n  = sum(1 for _,r in rep_filt.head(200).iterrows() if call_due_status(r)[0]=="Due Soon")
 
-                for label, desc, sdf, col in [
-                    ("🌅 Morning 9:00 AM","High Value — defend Rx share",hv,"#FF3B30"),
-                    ("☀️ Afternoon 1:00 PM","Growth HCPs — GLP-1 detailing",gr,"#34C759"),
-                    ("🌇 End of Day 4:30 PM","KOL / Speaker engagement",eod,"#FF9500"),
-                ]:
-                    if len(sdf)==0: continue
-                    st.html(f'''<div style="margin:10px 0 4px;font-size:0.72rem;font-weight:700;
-                        color:{col};text-transform:uppercase;letter-spacing:0.08em">
-                        {label} &nbsp;·&nbsp; <span style="color:#6E6E73;font-weight:400">{desc}</span>
-                        </div>''')
-                    ccols = st.columns(max(len(sdf),1))
-                    for cw,(_, row) in zip(ccols, sdf.iterrows()):
-                        seg=row.get("segment",""); sc_c=SEG_COLORS.get(seg,"#8E8E93")
-                        sc_bg=SEG_BG.get(seg,"#F5F5F7")
-                        status,detail,st_c,st_bg=call_due_status(row)
-                        with cw:
-                            st.html(f'''<div style="background:#FFFFFF;border-radius:14px;
-                                padding:14px 16px;border-left:3px solid {col};
-                                box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:8px">
-                              <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F">
-                                Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
-                                {row.get("credential","") or ""}
-                              </div>
-                              <div style="font-size:0.72rem;color:#6E6E73">{str(row.get("specialty",""))[:30]}</div>
-                              <div style="font-size:0.68rem;color:#8E8E93">📍 {str(row.get("city","")).title()}</div>
-                              <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap">
-                                <span style="background:{sc_bg};color:{sc_c};padding:2px 8px;
-                                  border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
-                                <span style="background:{st_bg};color:{st_c};padding:2px 8px;
-                                  border-radius:980px;font-size:0.63rem;font-weight:700">{status} · {detail}</span>
-                              </div>
-                              <div style="font-size:0.72rem;color:#003DA5;font-weight:600">
-                                → {recommended_action(row)}
-                              </div>
-                              <div style="font-size:0.65rem;color:#AEAEB2;margin-top:3px">
-                                {cadence_label(row)}
-                              </div>
-                            </div>''')
+        st.html(f"""
+        <div style="background:#FFFFFF;border-radius:16px;padding:1.1rem 1.5rem;
+                    margin-bottom:1rem;box-shadow:0 1px 4px rgba(0,0,0,0.05);
+                    border:1px solid rgba(0,0,0,0.04)">
+          <div style="font-size:0.62rem;font-weight:700;color:#003DA5;text-transform:uppercase;
+                      letter-spacing:0.12em;margin-bottom:0.4rem">
+            Sales Rep · {terr} Territory · {now.strftime("%A, %-d %B %Y")}
+          </div>
+          <div style="display:flex;gap:2.5rem;flex-wrap:wrap">
+            <div><div style="font-size:1.6rem;font-weight:800;color:#1D1D1F;letter-spacing:-0.03em">{len(rep_filt):,}</div>
+              <div style="font-size:0.68rem;color:#6E6E73">Territory HCPs</div></div>
+            <div><div style="font-size:1.6rem;font-weight:800;color:#003DA5;letter-spacing:-0.03em">{hv_n:,}</div>
+              <div style="font-size:0.68rem;color:#6E6E73">High Value</div></div>
+            <div><div style="font-size:1.6rem;font-weight:800;color:#34C759;letter-spacing:-0.03em">{gr_n:,}</div>
+              <div style="font-size:0.68rem;color:#6E6E73">Growth</div></div>
+            <div><div style="font-size:1.6rem;font-weight:800;color:#FF3B30;letter-spacing:-0.03em">{ov_n:,}</div>
+              <div style="font-size:0.68rem;color:#6E6E73">Overdue Calls</div></div>
+            <div><div style="font-size:1.6rem;font-weight:800;color:#FF9500;letter-spacing:-0.03em">{due_n:,}</div>
+              <div style="font-size:0.68rem;color:#6E6E73">Due Soon</div></div>
+          </div>
+        </div>
+        """)
 
-            # ── Weekly ────────────────────────────────────────────────────────
-            elif rep_views == "Weekly Calendar":
-                st.markdown('<div class="sec">Weekly Call Calendar — ' + state_full(st_val) + ' Territory</div>',
-                            unsafe_allow_html=True)
-                today   = datetime.now()
-                mon     = today - timedelta(days=today.weekday())
-                wd      = [(mon+timedelta(days=i)) for i in range(5)]
-                pool    = rep_filt.copy()
-                pool["_o1"] = pool.apply(lambda r: call_due_status(r)[0], axis=1).map(
-                    {"Overdue":0,"Due Soon":1,"On Track":2}).fillna(3)
-                pool["_o2"] = pool["segment"].map(
-                    {"High Value":0,"Growth":1,"Maintenance":2,"Deprioritise":3}).fillna(4)
-                pool = pool.sort_values(["_o1","_o2"]).head(25).reset_index(drop=True)
+        rep_tab1, rep_tab2, rep_tab3 = st.tabs(["Today's Calls", "My HCPs", "My Stats"])
 
-                dcols = st.columns(5)
-                for d_i,(dc,dt) in enumerate(zip(dcols,wd)):
-                    day_hcps = pool.iloc[d_i*5:(d_i+1)*5]
-                    is_today = dt.date()==today.date()
-                    with dc:
-                        st.html(f'''<div style="background:{"#EBF5FF" if is_today else "#F5F5F7"};
-                            border-radius:12px;padding:8px 10px;margin-bottom:8px;
-                            border:{"2px solid #003DA5" if is_today else "1px solid #E5E5EA"}">
-                          <div style="font-size:0.65rem;font-weight:700;
-                              color:{"#003DA5" if is_today else "#8E8E93"};
-                              text-transform:uppercase;letter-spacing:0.08em">
-                            {dt.strftime("%A")}{"  ← Today" if is_today else ""}
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB A — TODAY'S CALLS + OPPORTUNITIES
+        # ══════════════════════════════════════════════════════════════════════
+        with rep_tab1:
+
+            # ── Today's call plan ─────────────────────────────────────────────
+            hv_calls  = rep_filt[rep_filt["segment"]=="High Value"].head(3)
+            gr_calls  = rep_filt[rep_filt["segment"]=="Growth"].head(3)
+            if len(gr_calls) < 2:
+                gr_calls = pd.concat([
+                    gr_calls,
+                    rep_filt[rep_filt["segment"]=="Maintenance"].head(2 - len(gr_calls))
+                ]).reset_index(drop=True)
+            kol_call = rep_filt[rep_filt["opinion_leader_payments"]>0].head(1)
+            if len(kol_call)==0:
+                kol_call = rep_filt[rep_filt["segment"]=="Maintenance"].head(1)
+            total_today = len(hv_calls) + len(gr_calls) + len(kol_call)
+
+            st.markdown(f'<div class="sec">Today\'s Call Plan &nbsp;·&nbsp; {total_today} visits scheduled</div>',
+                        unsafe_allow_html=True)
+
+            def _call_card(row, accent):
+                seg      = row.get("segment","")
+                sc_c     = SEG_COLORS.get(seg,"#8E8E93")
+                sc_bg    = SEG_BG.get(seg,"#F5F5F7")
+                status, detail, st_c, st_bg = call_due_status(row)
+                action   = recommended_action(row)
+                cadence  = cadence_label(row)
+                kol_flag = " · KOL" if row.get("opinion_leader_payments",0)>0 else ""
+                return f"""
+                <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
+                            border-left:4px solid {accent};
+                            box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:10px">
+                  <div style="font-size:0.9rem;font-weight:700;color:#1D1D1F">
+                    Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
+                    <span style="font-weight:400;color:#8E8E93;font-size:0.75rem">
+                      {row.get("credential","") or ""}{kol_flag}
+                    </span>
+                  </div>
+                  <div style="font-size:0.72rem;color:#6E6E73;margin-top:2px">
+                    {str(row.get("specialty",""))[:35]} &nbsp;·&nbsp;
+                    {str(row.get("city","")).title()}
+                  </div>
+                  <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap;align-items:center">
+                    <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;
+                      border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
+                    <span style="background:{st_bg};color:{st_c};padding:2px 9px;
+                      border-radius:980px;font-size:0.63rem;font-weight:700">{status} · {detail}</span>
+                    <span style="font-size:0.63rem;color:#8E8E93">Score {row.get("targeting_score",0):.3f}</span>
+                  </div>
+                  <div style="font-size:0.73rem;color:#003DA5;font-weight:600">→ {action}</div>
+                  <div style="font-size:0.64rem;color:#AEAEB2;margin-top:3px">{cadence}</div>
+                </div>"""
+
+            for time_label, desc, pool, accent in [
+                ("Morning  ·  9:00 AM",   "High Value — defend Rx share",       hv_calls, "#003DA5"),
+                ("Afternoon  ·  1:00 PM", "Growth — GLP-1 / SGLT2 opportunity", gr_calls, "#34C759"),
+                ("End of Day  ·  4:30 PM","KOL engagement",                     kol_call, "#FF9500"),
+            ]:
+                if len(pool)==0: continue
+                st.html(f"""<div style="margin:14px 0 6px;font-size:0.7rem;font-weight:700;
+                    color:#6E6E73;text-transform:uppercase;letter-spacing:0.1em">
+                    {time_label} &nbsp;<span style="color:#AEAEB2;font-weight:400">·  {desc}</span></div>""")
+                cols = st.columns(len(pool))
+                for col, (_, row) in zip(cols, pool.iterrows()):
+                    col.html(_call_card(row, accent))
+
+            st.markdown("---")
+
+            # ── Opportunities: Growth HCPs not called in 30+ days ─────────────
+            st.markdown('<div class="sec">Opportunities — Growth HCPs Not Contacted in 30+ Days</div>',
+                        unsafe_allow_html=True)
+            st.html("""<div style="font-size:0.74rem;color:#6E6E73;margin-bottom:0.8rem">
+              These HCPs show strong prescribing growth but haven't been visited recently.
+              They are the highest-conversion targets in your territory right now.
+            </div>""")
+
+            opps = rep_filt[rep_filt["segment"]=="Growth"].copy()
+            opps["_days_since"] = opps["npi"].apply(
+                lambda n: (now - sim_last_call(n)).days)
+            opps = opps[opps["_days_since"] >= 30].sort_values(
+                ["_days_since","targeting_score"], ascending=[False,False]).head(6)
+
+            if len(opps) > 0:
+                o_cols = st.columns(min(3, len(opps)))
+                for i, (_, row) in enumerate(opps.iterrows()):
+                    days_since = int(row["_days_since"])
+                    urgency    = "#FF3B30" if days_since > 60 else "#FF9500"
+                    with o_cols[i % 3]:
+                        st.html(f"""
+                        <div style="background:#FFFFFF;border-radius:14px;padding:13px 15px;
+                                    border-left:4px solid {urgency};
+                                    box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:10px">
+                          <div style="font-size:0.88rem;font-weight:700;color:#1D1D1F">
+                            Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
                           </div>
-                          <div style="font-size:0.75rem;color:#1D1D1F;font-weight:600">
-                            {dt.strftime("%-d %b")} · {len(day_hcps)} calls
+                          <div style="font-size:0.7rem;color:#6E6E73">
+                            {str(row.get("specialty",""))[:30]} · {str(row.get("city","")).title()}
                           </div>
-                        </div>''')
-                        for _,row in day_hcps.iterrows():
-                            seg=row.get("segment",""); sc_c=SEG_COLORS.get(seg,"#8E8E93")
-                            sc_bg=SEG_BG.get(seg,"#F5F5F7")
-                            status,detail,st_c,_=call_due_status(row)
-                            st.html(f'''<div style="background:#FFFFFF;border-radius:10px;
-                                padding:10px 12px;margin-bottom:6px;border-left:3px solid {sc_c};
-                                box-shadow:0 1px 4px rgba(0,0,0,0.05)">
-                              <div style="font-size:0.78rem;font-weight:700;color:#1D1D1F">
-                                Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
-                              </div>
-                              <div style="font-size:0.65rem;color:#6E6E73">{str(row.get("specialty",""))[:22]}</div>
-                              <div style="font-size:0.63rem;color:#8E8E93">📍 {str(row.get("city","")).title()}</div>
-                              <div style="display:flex;gap:4px;margin-top:5px;flex-wrap:wrap">
-                                <span style="background:{sc_bg};color:{sc_c};padding:1px 7px;
-                                  border-radius:980px;font-size:0.6rem;font-weight:700">{seg}</span>
-                                <span style="color:{st_c};font-size:0.6rem;font-weight:600">{status}</span>
-                              </div>
-                            </div>''')
-
-            # ── Monthly ───────────────────────────────────────────────────────
+                          <div style="margin:8px 0;font-size:0.72rem;font-weight:700;color:{urgency}">
+                            {days_since} days since last visit
+                          </div>
+                          <div style="font-size:0.7rem;color:#003DA5;font-weight:600">
+                            → {recommended_action(row)}
+                          </div>
+                          <div style="font-size:0.63rem;color:#8E8E93;margin-top:3px">
+                            Growth segment · Score {row.get("targeting_score",0):.3f}
+                          </div>
+                        </div>""")
             else:
-                st.markdown('<div class="sec">Monthly Coverage — ' + state_full(st_val) + ' Territory</div>',
-                            unsafe_allow_html=True)
-                total = len(rep_filt)
-                contacted = sum(1 for _,r in rep_filt.head(300).iterrows()
-                                if (datetime.now()-sim_last_call(r.get("npi",0))).days<=30)
-                overdue   = sum(1 for _,r in rep_filt.head(300).iterrows()
-                                if call_due_status(r)[0]=="Overdue")
-                pct = contacted/total*100 if total>0 else 0
-                c1,c2,c3,c4 = st.columns(4)
-                c1.metric("Territory HCPs",    f"{total:,}")
-                c2.metric("Contacted (30d)",    f"{contacted:,}")
-                c3.metric("Coverage %",         f"{pct:.0f}%")
-                c4.metric("Overdue Calls",       f"{overdue:,}")
+                st.success("All Growth HCPs contacted within the last 30 days.")
 
-                seg_cover=[]
-                for sn,cad in CALL_CADENCE_DAYS.items():
-                    sd=rep_filt[rep_filt["segment"]==sn]
-                    if not len(sd): continue
-                    ct=sum(1 for _,r in sd.head(200).iterrows()
-                           if (datetime.now()-sim_last_call(r.get("npi",0))).days<=cad)
-                    seg_cover.append({"Segment":sn,"HCPs":len(sd),"Contacted":ct,
-                                      "Coverage %":round(ct/min(len(sd),200)*100),"Target":85})
-                if seg_cover:
-                    sc_df=pd.DataFrame(seg_cover)
-                    fig_c=px.bar(sc_df,x="Coverage %",y="Segment",orientation="h",
-                                 color="Segment",color_discrete_map=SEG_COLORS,text="Coverage %",
-                                 labels={"Coverage %":"Coverage %","Segment":""})
-                    fig_c.update_traces(texttemplate="%{text:.0f}%",textposition="outside")
-                    fig_c.add_vline(x=85,line_dash="dot",line_color="#8E8E93",
-                                    annotation_text="85% target",annotation_position="top right")
-                    fig_c.update_layout(**CHART_LAYOUT,height=220,showlegend=False,
-                                        margin=dict(t=5,b=5,l=5,r=60),
-                                        xaxis=dict(range=[0,110],gridcolor="#F5F5F7"),
-                                        yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
-                    st.plotly_chart(fig_c,use_container_width=True)
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB B — MY HCPs (full territory list + inline profile)
+        # ══════════════════════════════════════════════════════════════════════
+        with rep_tab2:
+            st.markdown('<div class="sec">My Territory HCPs — ' + terr + '</div>',
+                        unsafe_allow_html=True)
+
+            # Filter controls
+            fc1, fc2, fc3 = st.columns([2,2,1])
+            with fc1:
+                search_q = st.text_input("Search by name", placeholder="e.g. Smith", label_visibility="collapsed")
+            with fc2:
+                seg_filter = st.multiselect("Segment", ["High Value","Growth","Maintenance","Deprioritise"],
+                                            default=["High Value","Growth","Maintenance"],
+                                            label_visibility="collapsed")
+            with fc3:
+                show_kol = st.checkbox("KOL only", value=False)
+
+            hcp_view = rep_filt.copy()
+            if search_q:
+                hcp_view = hcp_view[
+                    hcp_view["last_name"].str.contains(search_q, case=False, na=False) |
+                    hcp_view["first_name"].str.contains(search_q, case=False, na=False)
+                ]
+            if seg_filter:
+                hcp_view = hcp_view[hcp_view["segment"].isin(seg_filter)]
+            if show_kol:
+                hcp_view = hcp_view[hcp_view["opinion_leader_payments"]>0]
+
+            hcp_view["_status"] = hcp_view.apply(lambda r: call_due_status(r)[0], axis=1)
+            hcp_view["_days"]   = hcp_view["npi"].apply(lambda n: (now - sim_last_call(n)).days)
+            hcp_view["_action"] = hcp_view.apply(recommended_action, axis=1)
+
+            disp = hcp_view[["last_name","first_name","specialty","city","segment",
+                              "targeting_score","_status","_days","_action"]].copy().head(100)
+            disp.columns = ["Last","First","Specialty","City","Segment",
+                            "Score","Call Status","Days Since Visit","Recommended Action"]
+            disp["Score"] = disp["Score"].apply(lambda x: f"{x:.3f}")
+            disp.index = range(1, len(disp)+1)
+            st.dataframe(disp, use_container_width=True, hide_index=False)
+
+            st.html(f"<div style='font-size:0.68rem;color:#8E8E93;margin-top:4px'>"
+                    f"Showing {len(disp)} of {len(hcp_view):,} HCPs in territory</div>")
+
+            # Inline HCP profile
+            st.markdown('<div class="sec">HCP Profile — click to explore</div>',
+                        unsafe_allow_html=True)
+            hcp_options = hcp_view.apply(
+                lambda r: f"Dr {r['last_name']}, {str(r['first_name'])[:1]}. — {r['specialty']} · {str(r['city']).title()}",
+                axis=1).tolist()
+            sel_idx = st.selectbox("Select an HCP", range(len(hcp_options)),
+                                   format_func=lambda i: hcp_options[i],
+                                   label_visibility="collapsed") if hcp_options else None
+
+            if sel_idx is not None:
+                pr = hcp_view.iloc[sel_idx]
+                seg      = pr.get("segment","")
+                sc_c     = SEG_COLORS.get(seg,"#8E8E93")
+                sc_bg    = SEG_BG.get(seg,"#F5F5F7")
+                status, detail, st_c, st_bg = call_due_status(pr)
+                p1, p2, p3 = st.columns(3)
+                with p1:
+                    st.html(f"""
+                    <div style="background:#FFFFFF;border-radius:14px;padding:16px;
+                                box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+                      <div style="font-size:1rem;font-weight:700;color:#1D1D1F">
+                        Dr {pr.get("last_name","")}, {str(pr.get("first_name",""))[:1]}.
+                        {pr.get("credential","") or ""}
+                      </div>
+                      <div style="font-size:0.75rem;color:#6E6E73;margin:4px 0">
+                        {pr.get("specialty","")}
+                      </div>
+                      <div style="font-size:0.72rem;color:#8E8E93">
+                        {str(pr.get("city","")).title()}, {pr.get("state","")}
+                      </div>
+                      <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
+                        <span style="background:{sc_bg};color:{sc_c};padding:3px 10px;
+                          border-radius:980px;font-size:0.65rem;font-weight:700">{seg}</span>
+                        <span style="background:{st_bg};color:{st_c};padding:3px 10px;
+                          border-radius:980px;font-size:0.65rem;font-weight:700">{status}</span>
+                        {"<span style='background:#FFF8ED;color:#CC7700;padding:3px 10px;border-radius:980px;font-size:0.65rem;font-weight:700'>KOL</span>" if pr.get("opinion_leader_payments",0)>0 else ""}
+                      </div>
+                      <div style="margin-top:12px;font-size:0.78rem;color:#003DA5;font-weight:600">
+                        → {recommended_action(pr)}
+                      </div>
+                    </div>""")
+                with p2:
+                    st.html(f"""
+                    <div style="background:#FFFFFF;border-radius:14px;padding:16px;
+                                box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+                      <div style="font-size:0.62rem;font-weight:700;color:#8E8E93;
+                                  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">
+                        Prescribing Profile
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">2022 Rx Fills</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            {int(pr.get("fills_2022",0)):,}
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">YoY Growth</span>
+                          <span style="font-size:0.73rem;font-weight:700;
+                            color:{'#34C759' if pr.get('yoy_growth_pct',0)>0 else '#FF3B30'}">
+                            {pr.get("yoy_growth_pct",0):+.1f}%
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Volume Decile</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            {int(pr.get("volume_decile",0))}/10
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Growth Decile</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            {int(pr.get("growth_decile",0))}/10
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Targeting Score</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#003DA5">
+                            {pr.get("targeting_score",0):.3f}
+                          </span>
+                        </div>
+                      </div>
+                    </div>""")
+                with p3:
+                    pay = float(pr.get("total_payment_usd",0) or 0)
+                    op  = float(pr.get("opinion_leader_payments",0) or 0)
+                    pc  = int(pr.get("payment_count",0) or 0)
+                    st.html(f"""
+                    <div style="background:#FFFFFF;border-radius:14px;padding:16px;
+                                box-shadow:0 2px 8px rgba(0,0,0,0.06)">
+                      <div style="font-size:0.62rem;font-weight:700;color:#8E8E93;
+                                  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">
+                        Engagement & KOL
+                      </div>
+                      <div style="display:flex;flex-direction:column;gap:8px">
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Total Payments</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            ${pay:,.0f}
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">KOL / Speaker Fees</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            ${op:,.0f}
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Payment Events</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            {pc}
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Last Visit</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
+                            {int((now - sim_last_call(pr.get("npi",0))).days)} days ago
+                          </span>
+                        </div>
+                        <div style="display:flex;justify-content:space-between">
+                          <span style="font-size:0.73rem;color:#374151">Next Visit Due</span>
+                          <span style="font-size:0.73rem;font-weight:700;color:{st_c}">
+                            {detail}
+                          </span>
+                        </div>
+                      </div>
+                    </div>""")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB C — MY STATS (Monthly + Quarterly)
+        # ══════════════════════════════════════════════════════════════════════
+        with rep_tab3:
+
+            # ── Shared calculations ────────────────────────────────────────────
+            sample     = rep_filt.head(300)
+            month_start = now.replace(day=1)
+            q          = (now.month - 1) // 3
+            q_start    = now.replace(month=q*3+1, day=1)
+            days_in_mo = (now.replace(month=now.month%12+1, day=1) - timedelta(days=1)).day
+            days_left  = days_in_mo - now.day
+
+            def _days_in_window(npi, since_date):
+                last = sim_last_call(npi)
+                return last >= since_date
+
+            mo_contacted = sum(1 for _,r in sample.iterrows()
+                               if _days_in_window(r.get("npi",0), month_start))
+            q_contacted  = sum(1 for _,r in sample.iterrows()
+                               if _days_in_window(r.get("npi",0), q_start))
+            mo_target    = min(len(sample), 80)   # ~80 unique HCPs/month target
+            q_target     = min(len(sample), 220)
+            mo_pct       = min(100, round(mo_contacted / max(mo_target,1) * 100))
+            q_pct        = min(100, round(q_contacted  / max(q_target,1)  * 100))
+
+            # HV with zero visits this quarter — biggest risk flag
+            hv_pool    = rep_filt[rep_filt["segment"]=="High Value"].head(100)
+            hv_zero_q  = hv_pool[~hv_pool["npi"].apply(lambda n: _days_in_window(n, q_start))]
+
+            # ── Monthly section ────────────────────────────────────────────────
+            st.markdown(f'<div class="sec">Monthly Performance — {now.strftime("%B %Y")}</div>',
+                        unsafe_allow_html=True)
+
+            m1, m2, m3, m4, m5 = st.columns(5)
+            m1.metric("HCPs Contacted", f"{mo_contacted:,}", f"of {mo_target} target")
+            m2.metric("Coverage", f"{mo_pct}%",
+                      delta=f"{'On track' if mo_pct>=70 else 'Behind pace'}")
+            m3.metric("Days Remaining", str(days_left))
+            m4.metric("Calls Still Needed", str(max(0, mo_target - mo_contacted)))
+            m5.metric("Overdue HCPs", str(ov_n))
+
+            # Segment coverage bar chart
+            seg_cov = []
+            for sn, cad in CALL_CADENCE_DAYS.items():
+                sd = rep_filt[rep_filt["segment"]==sn]
+                if not len(sd): continue
+                ct = sum(1 for _,r in sd.head(150).iterrows()
+                         if (now - sim_last_call(r.get("npi",0))).days <= cad)
+                seg_cov.append({"Segment": sn,
+                                "Coverage %": round(ct / min(len(sd),150) * 100),
+                                "Target": 85})
+            if seg_cov:
+                sc_df = pd.DataFrame(seg_cov)
+                fig_mo = px.bar(sc_df, x="Coverage %", y="Segment", orientation="h",
+                                color="Segment", color_discrete_map=SEG_COLORS,
+                                text="Coverage %",
+                                labels={"Coverage %":"Coverage %","Segment":""})
+                fig_mo.update_traces(texttemplate="%{text}%", textposition="outside")
+                fig_mo.add_vline(x=85, line_dash="dot", line_color="#8E8E93",
+                                 annotation_text="85% target", annotation_position="top right")
+                fig_mo.update_layout(**CHART_LAYOUT, height=200, showlegend=False,
+                                     margin=dict(t=5,b=5,l=5,r=70),
+                                     xaxis=dict(range=[0,115],gridcolor="#F5F5F7"),
+                                     yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
+                st.plotly_chart(fig_mo, use_container_width=True)
+
+            st.markdown("---")
+
+            # ── Quarterly section ──────────────────────────────────────────────
+            q_names = ["Q1","Q2","Q3","Q4"]
+            st.markdown(f'<div class="sec">Quarterly Review — {q_names[q]} {now.year}</div>',
+                        unsafe_allow_html=True)
+
+            q1, q2, q3, q4 = st.columns(4)
+            q1.metric("HCPs Contacted QTD", f"{q_contacted:,}", f"of {q_target} target")
+            q2.metric("QTD Coverage",        f"{q_pct}%")
+            q3.metric("High Value HCPs",     f"{hv_n:,}")
+            q4.metric("HV Not Visited QTD",  f"{len(hv_zero_q):,}",
+                      delta="-" if len(hv_zero_q)>0 else "All covered",
+                      delta_color="inverse")
+
+            # Risk flag: HV HCPs with zero QTD visits
+            if len(hv_zero_q) > 0:
+                st.html(f"""
+                <div style="background:#FEF2F2;border-radius:12px;padding:12px 16px;
+                            margin:10px 0;border-left:3px solid #FF3B30">
+                  <div style="font-size:0.72rem;font-weight:700;color:#C0392B;margin-bottom:4px">
+                    {len(hv_zero_q)} High Value HCPs not visited this quarter — schedule immediately
+                  </div>
+                  <div style="font-size:0.7rem;color:#6E6E73">
+                    These are your highest-priority accounts. Missing them this quarter
+                    risks losing Rx share to competitors.
+                  </div>
+                </div>""")
+                risk_disp = hv_zero_q[["last_name","first_name","specialty","city",
+                                        "targeting_score","fills_2022"]].copy().head(10)
+                risk_disp["city"] = risk_disp["city"].apply(lambda x: str(x).title())
+                risk_disp.columns = ["Last","First","Specialty","City","Score","2022 Fills"]
+                risk_disp["Score"] = risk_disp["Score"].apply(lambda x: f"{x:.3f}")
+                risk_disp["2022 Fills"] = risk_disp["2022 Fills"].apply(lambda x: f"{int(x):,}")
+                risk_disp.index = range(1, len(risk_disp)+1)
+                st.dataframe(risk_disp, use_container_width=True, hide_index=False)
+            else:
+                st.success("All High Value HCPs visited this quarter.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # AREA MANAGER — Weekly · Monthly · Quarterly (1 region)
