@@ -220,20 +220,6 @@ CDC_T2D_PREV = {
 CALL_COST_USD   = 180   # estimated cost per field sales call
 REV_PER_FILL    = 45    # net revenue per branded Rx fill (USD)
 
-# ── SILENT PATIENT POOL CONSTANTS ──────────────────────────────────────────────
-# State adult populations (millions, 2022 Census estimates)
-STATE_POP_M = {
-    "TX":30.0,"CA":39.0,"FL":22.6,"NY":19.7,"PA":12.9,"IL":12.6,"OH":11.8,
-    "GA":11.0,"NC":10.7,"MI":10.0,"NJ":9.3,"VA":8.7,"WA":7.8,"AZ":7.5,
-    "TN":7.1,"MA":7.0,"IN":6.8,"MO":6.2,"MD":6.2,"WI":5.9,"CO":5.8,
-    "MN":5.7,"SC":5.3,"AL":5.1,"LA":4.6,"KY":4.5,"OR":4.3,"OK":4.0,
-    "CT":3.6,"UT":3.4,"IA":3.2,"NV":3.2,"AR":3.0,"MS":3.0,"KS":2.9,
-    "NM":2.1,"NE":2.0,"WV":1.8,"ID":1.9,"HI":1.4,"NH":1.4,"ME":1.4,
-    "MT":1.1,"RI":1.1,"DE":1.0,"SD":0.9,"ND":0.8,"AK":0.7,"VT":0.6,
-    "WY":0.6,"DC":0.7,
-}
-UNDIAGNOSED_RATE = 0.233   # CDC 2022: 23.3% of T2D cases undiagnosed
-PREDIABETES_RATE = 0.380   # CDC 2022: 38% of US adults have pre-diabetes
 
 
 def momentum_score(row):
@@ -559,11 +545,19 @@ def get_conn():
         dsn = "postgresql://postgres:newpassword123@localhost:5432/postgres"
     return psycopg2.connect(dsn)
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_hcp():
-    return pd.read_sql("SELECT * FROM hcp_targeting_scores", get_conn())
+    # Select only columns used by the dashboard — avoids loading unused text fields
+    return pd.read_sql("""
+        SELECT npi, last_name, first_name, credential, specialty,
+               state, city, volume_decile, growth_decile, fills_2022,
+               fills_2021, yoy_growth_pct, drug_cost_2022, drugs_2022,
+               total_payment_usd, payment_count, opinion_leader_payments,
+               targeting_score, segment
+        FROM hcp_targeting_scores
+    """, get_conn())
 
-@st.cache_data(ttl=600, show_spinner=False)
+@st.cache_data(ttl=3600, show_spinner=False)
 def load_drug_trends():
     return pd.read_sql("""
         SELECT drug_class, year,
@@ -574,71 +568,9 @@ def load_drug_trends():
         GROUP BY drug_class, year ORDER BY drug_class, year
     """, get_conn())
 
-@st.cache_data(ttl=600, show_spinner=False)
-def load_silent_pool():
-    """
-    Gateway prescribers: HCPs who prescribe mainly Biguanides (Metformin)
-    with minimal or zero advanced diabetes drugs (GLP-1, SGLT2, DPP-4).
-    Their patient panels represent the silent pre-diabetic / early-T2D pool.
-    Returns empty DataFrame if fact_prescriptions is unavailable.
-    """
-    _EMPTY_COLS = ["npi","last_name","first_name","credential","specialty","state","city",
-                   "targeting_score","segment","biguanide_fills","glp1_fills","sglt2_fills",
-                   "dpp4_fills","insulin_fills","total_fills","biguanide_pct","gateway_type"]
-    _SQL = """
-        WITH drug_pivot AS (
-            SELECT
-                npi,
-                SUM(CASE WHEN drug_class = 'Biguanide'       THEN tot_30day_fills ELSE 0 END) AS biguanide_fills,
-                SUM(CASE WHEN drug_class = 'GLP-1 Agonist'   THEN tot_30day_fills ELSE 0 END) AS glp1_fills,
-                SUM(CASE WHEN drug_class = 'SGLT2 Inhibitor' THEN tot_30day_fills ELSE 0 END) AS sglt2_fills,
-                SUM(CASE WHEN drug_class = 'DPP-4 Inhibitor' THEN tot_30day_fills ELSE 0 END) AS dpp4_fills,
-                SUM(CASE WHEN drug_class = 'Insulin'         THEN tot_30day_fills ELSE 0 END) AS insulin_fills,
-                SUM(tot_30day_fills) AS total_fills
-            FROM fact_prescriptions
-            {year_filter}
-            GROUP BY npi
-        )
-        SELECT
-            dp.npi,
-            h.last_name, h.first_name, h.credential, h.specialty,
-            h.state, h.city, h.targeting_score, h.segment,
-            dp.biguanide_fills, dp.glp1_fills, dp.sglt2_fills,
-            dp.dpp4_fills, dp.insulin_fills, dp.total_fills,
-            ROUND(dp.biguanide_fills::NUMERIC / NULLIF(dp.total_fills,0) * 100, 1) AS biguanide_pct,
-            CASE
-                WHEN dp.glp1_fills = 0 AND dp.sglt2_fills = 0 AND dp.dpp4_fills = 0
-                     THEN 'Metformin Only'
-                WHEN dp.biguanide_fills::NUMERIC / NULLIF(dp.total_fills,0) >= 0.70
-                     THEN 'Metformin Dominant'
-                WHEN dp.biguanide_fills::NUMERIC / NULLIF(dp.total_fills,0) >= 0.50
-                     THEN 'Metformin Heavy'
-                ELSE 'Mixed'
-            END AS gateway_type
-        FROM drug_pivot dp
-        JOIN hcp_targeting_scores h ON dp.npi = h.npi
-        WHERE dp.biguanide_fills > 0
-          AND (
-              dp.glp1_fills = 0
-              OR dp.biguanide_fills::NUMERIC / NULLIF(dp.total_fills,0) >= 0.50
-          )
-        ORDER BY dp.biguanide_fills DESC
-    """
-    try:
-        # First try: filter to 2022 only
-        result = pd.read_sql(_SQL.format(year_filter="WHERE year = 2022"), get_conn())
-        # If 2022 returns nothing, fall back to all years (data may use different year values)
-        if len(result) == 0:
-            result = pd.read_sql(_SQL.format(year_filter=""), get_conn())
-        return result
-    except Exception:
-        # fact_prescriptions may not exist in this deployment — return empty frame
-        return pd.DataFrame(columns=_EMPTY_COLS)
-
 with st.spinner("Loading data…"):
     df         = load_hcp()
     drug_df    = load_drug_trends()
-    silent_df  = load_silent_pool()
 
 # ── ROLE PICKER (shown on first visit before dashboard) ───────────────────────
 if st.session_state.persona_role is None:
@@ -1215,256 +1147,6 @@ else:
             """)
 
 st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
-
-# ── SILENT PATIENT POOL RENDERER ───────────────────────────────────────────────
-def render_silent_pool(states, section_title):
-    """
-    Silent Patient Pool Finder — aligned with SCQA framework.
-    Combines Rx signals, CDC epidemiology, and geographic data to surface
-    patients who are on the diabetes trajectory but invisible to pharma analytics.
-
-    Signals used:
-      1. Gateway prescribers (Metformin-dominant Rx) — Rx data signal
-      2. Diagnostic Gap Index — CDC prevalence vs actual prescription density
-      3. OTC-proxy HCPs — primary care with low diabetes Rx in high-T2D states
-      4. Screening campaign priority — composite score for intervention targeting
-    """
-    # Guard: if fact_prescriptions wasn't available, silent_df is empty
-    if len(silent_df) == 0:
-        st.info("Silent patient pool data is not yet available — "
-                "run the SQL pipeline (02_transform.sql → 04_targeting_score.sql) "
-                "to populate fact_prescriptions, then redeploy.")
-        return
-
-    sp           = silent_df[silent_df["state"].isin(states)].copy() if states else silent_df.copy()
-    scope_states = states if states else [s for s in CDC_T2D_PREV if s in STATE_POP_M]
-    scope_df     = df[df["state"].isin(scope_states)].copy() if scope_states else df.copy()
-
-    # ── Core estimates ────────────────────────────────────────────────────────
-    total_undiag  = sum(STATE_POP_M.get(s,2)*1e6 * CDC_T2D_PREV.get(s,10)/100 * UNDIAGNOSED_RATE
-                        for s in scope_states if s in STATE_POP_M)
-    total_prediab = sum(STATE_POP_M.get(s,2)*1e6 * PREDIABETES_RATE
-                        for s in scope_states if s in STATE_POP_M)
-    gateway_n  = len(sp)
-    only_n     = int((sp["gateway_type"]=="Metformin Only").sum())
-    bg_fills   = float(sp["biguanide_fills"].sum())
-    pts_est    = bg_fills / 4
-    rev_opp    = pts_est * 0.15 * REV_PER_FILL * 12
-
-    # ── Diagnostic Gap per state ───────────────────────────────────────────────
-    diag_gap_rows = []
-    for s in scope_states:
-        if s not in STATE_POP_M or s not in CDC_T2D_PREV: continue
-        pop        = STATE_POP_M[s] * 1e6
-        t2d_est    = pop * CDC_T2D_PREV[s] / 100
-        prediab    = pop * PREDIABETES_RATE
-        rx_fills   = float(scope_df[scope_df["state"]==s]["fills_2022"].sum())
-        active_pts = rx_fills / 8           # ~8 fills/active patient/year
-        gap_pts    = max(0, t2d_est - active_pts)
-        gap_pct    = round(gap_pts / max(t2d_est,1) * 100, 1)
-        hcp_density= len(scope_df[scope_df["state"]==s]) / max(pop/1e5, 0.1)
-        # Composite campaign score: high gap + high prevalence + low HCP density = high priority
-        campaign_score = round((gap_pct/100 * 0.5) + (CDC_T2D_PREV[s]/15 * 0.3) + (1/(hcp_density+0.1) * 0.2), 3)
-        tier = ("High Priority" if gap_pct > 60 else
-                "Medium Priority" if gap_pct > 35 else "Well Served")
-        diag_gap_rows.append({
-            "state_abbr":   s,
-            "State":        state_full(s),
-            "T2D Prevalence": f"{CDC_T2D_PREV[s]}%",
-            "Est T2D Patients": int(t2d_est),
-            "Active Rx Patients": int(active_pts),
-            "Silent Pool Est.": int(gap_pts),
-            "Diagnostic Gap %": gap_pct,
-            "HCPs / 100k Pop": round(hcp_density,1),
-            "Campaign Score": campaign_score,
-            "Priority Tier": tier,
-        })
-    gap_tbl = pd.DataFrame(diag_gap_rows).sort_values("Campaign Score", ascending=False)
-
-    # ── OTC-proxy: primary care, low Rx, high-T2D state ──────────────────────
-    PRIMARY_SPECS = ["Family Medicine","Internal Medicine","General Practice",
-                     "Geriatric Medicine","Preventive Medicine"]
-    high_t2d_states = [s for s in scope_states if CDC_T2D_PREV.get(s,0) >= 10.5]
-    otc_proxy = scope_df[
-        scope_df["specialty"].isin(PRIMARY_SPECS) &
-        scope_df["state"].isin(high_t2d_states) &
-        (scope_df["volume_decile"] <= 4)          # low Rx volume = likely pre-diabetic patients
-    ].sort_values("fills_2022", ascending=False).head(20).copy()
-
-    # ── SCQA banner ───────────────────────────────────────────────────────────
-    st.html(f"""
-    <div style="background:#FFFFFF;border-radius:16px;padding:1.2rem 1.6rem;
-                margin-bottom:1rem;box-shadow:0 1px 3px rgba(0,0,0,0.05);
-                border-left:3px solid #C0392B;border:1px solid rgba(0,0,0,0.04)">
-      <div style="font-size:0.62rem;font-weight:700;color:#C0392B;text-transform:uppercase;
-                  letter-spacing:0.1em;margin-bottom:0.5rem">Silent Patient Pool Finder</div>
-      <div style="font-size:0.78rem;color:#374151;line-height:1.7;max-width:900px">
-        Standard pharma analytics only captures <strong>already-diagnosed, already-treated</strong>
-        patients. A large silent cohort — pre-diabetic, undiagnosed, or managed on first-line
-        Metformin only — never appears in Rx data. This section surfaces them using four signals:
-        Rx pathway gaps, CDC epidemiology, geographic HCP density, and prescriber specialty patterns.
-      </div>
-      <div style="display:flex;gap:2rem;flex-wrap:wrap;margin-top:1rem">
-        <div style="text-align:center;flex:1;min-width:120px">
-          <div style="font-size:1.8rem;font-weight:800;color:#C0392B;letter-spacing:-0.03em">{total_undiag/1e6:.1f}M</div>
-          <div style="font-size:0.68rem;color:#6E6E73;margin-top:2px">Undiagnosed T2D<br>
-            <span style="color:#8E8E93;font-size:0.62rem">CDC {UNDIAGNOSED_RATE*100:.0f}% undiagnosed rate</span></div>
-        </div>
-        <div style="width:1px;background:#F0F0F0"></div>
-        <div style="text-align:center;flex:1;min-width:120px">
-          <div style="font-size:1.8rem;font-weight:800;color:#B45309;letter-spacing:-0.03em">{total_prediab/1e6:.0f}M</div>
-          <div style="font-size:0.68rem;color:#6E6E73;margin-top:2px">Pre-diabetic adults<br>
-            <span style="color:#8E8E93;font-size:0.62rem">CDC {PREDIABETES_RATE*100:.0f}% prevalence</span></div>
-        </div>
-        <div style="width:1px;background:#F0F0F0"></div>
-        <div style="text-align:center;flex:1;min-width:120px">
-          <div style="font-size:1.8rem;font-weight:800;color:#003DA5;letter-spacing:-0.03em">{gateway_n:,}</div>
-          <div style="font-size:0.68rem;color:#6E6E73;margin-top:2px">Gateway prescribers<br>
-            <span style="color:#8E8E93;font-size:0.62rem">{only_n:,} Metformin-only</span></div>
-        </div>
-        <div style="width:1px;background:#F0F0F0"></div>
-        <div style="text-align:center;flex:1;min-width:120px">
-          <div style="font-size:1.8rem;font-weight:800;color:#1A7A40;letter-spacing:-0.03em">{len(otc_proxy):,}</div>
-          <div style="font-size:0.68rem;color:#6E6E73;margin-top:2px">OTC-proxy HCPs<br>
-            <span style="color:#8E8E93;font-size:0.62rem">Primary care, low Rx, high-T2D state</span></div>
-        </div>
-        <div style="width:1px;background:#F0F0F0"></div>
-        <div style="text-align:center;flex:1;min-width:120px">
-          <div style="font-size:1.8rem;font-weight:800;color:#6B21A8;letter-spacing:-0.03em">${rev_opp/1e6:.1f}M</div>
-          <div style="font-size:0.68rem;color:#6E6E73;margin-top:2px">Revenue opportunity<br>
-            <span style="color:#8E8E93;font-size:0.62rem">15% escalation × ${REV_PER_FILL}/fill/mo</span></div>
-        </div>
-      </div>
-    </div>
-    """)
-
-    # ── Section 1: Diagnostic Gap Map + Campaign Priority ─────────────────────
-    st.markdown('<div class="sec">Diagnostic Gap Index — Where the Silent Pool Is Largest</div>',
-                unsafe_allow_html=True)
-
-    dg1, dg2 = st.columns([3, 2])
-    with dg1:
-        if len(gap_tbl) > 0:
-            # Choropleth — coloured by diagnostic gap %
-            fig_diag = px.choropleth(
-                gap_tbl, locations="state_abbr", locationmode="USA-states",
-                color="Diagnostic Gap %", scope="usa",
-                color_continuous_scale=["#34C759","#FF9500","#FF3B30"],
-                hover_name="State",
-                hover_data={"Est T2D Patients":True,"Silent Pool Est.":True,
-                            "Campaign Score":True,"state_abbr":False},
-                labels={"Diagnostic Gap %":"Gap %"},
-            )
-            fig_diag.update_layout(**CHART_LAYOUT, height=300,
-                                   margin=dict(t=5,b=5,l=0,r=0),
-                                   geo=dict(bgcolor="#FFFFFF",lakecolor="#F5F5F7"))
-            st.plotly_chart(fig_diag, use_container_width=True)
-
-    with dg2:
-        if len(gap_tbl) > 0:
-            tier_colors = {"High Priority":"#FEF2F2","Medium Priority":"#FFFBEB","Well Served":"#F0FDF4"}
-            tier_text   = {"High Priority":"#C0392B","Medium Priority":"#B45309","Well Served":"#1A7A40"}
-            disp_gap = gap_tbl[["State","T2D Prevalence","Silent Pool Est.",
-                                 "Diagnostic Gap %","Priority Tier"]].head(10).copy()
-            disp_gap["Silent Pool Est."] = disp_gap["Silent Pool Est."].apply(lambda x: f"{x:,}")
-            disp_gap["Diagnostic Gap %"] = disp_gap["Diagnostic Gap %"].apply(lambda x: f"{x:.1f}%")
-            disp_gap.index = range(1, len(disp_gap)+1)
-            st.dataframe(disp_gap, use_container_width=True, hide_index=False)
-
-    # ── Section 2: Drug Gap + Gateway Prescribers ─────────────────────────────
-    st.markdown('<div class="sec">Rx Signal — Biguanide vs Advanced Therapy Gap by State</div>',
-                unsafe_allow_html=True)
-
-    col_l, col_r = st.columns([3, 2])
-    with col_l:
-        if len(sp) > 0:
-            gap_rows = []
-            for s in (states if states else sorted(sp["state"].unique())):
-                sdf = sp[sp["state"]==s]
-                if not len(sdf): continue
-                gap_rows.append({
-                    "State": state_full(s),
-                    "Biguanide (Metformin)":      int(sdf["biguanide_fills"].sum()),
-                    "Advanced (GLP-1+SGLT2+DPP4)":int(sdf["glp1_fills"].sum()+sdf["sglt2_fills"].sum()+sdf["dpp4_fills"].sum()),
-                })
-            if gap_rows:
-                gdf = pd.DataFrame(gap_rows).sort_values("Biguanide (Metformin)", ascending=False).head(15)
-                fig_gap = px.bar(gdf, x="State",
-                                 y=["Biguanide (Metformin)","Advanced (GLP-1+SGLT2+DPP4)"],
-                                 barmode="group",
-                                 color_discrete_map={"Biguanide (Metformin)":"#B45309",
-                                                     "Advanced (GLP-1+SGLT2+DPP4)":"#003DA5"},
-                                 labels={"value":"30-day Fills","variable":"Drug Type"})
-                fig_gap.update_layout(**CHART_LAYOUT, height=280,
-                                      margin=dict(t=5,b=5,l=5,r=5),
-                                      xaxis=dict(gridcolor="#F5F5F7",tickangle=-30),
-                                      yaxis=dict(gridcolor="#F5F5F7"),
-                                      legend=dict(orientation="h",y=-0.35))
-                st.plotly_chart(fig_gap, use_container_width=True)
-
-    with col_r:
-        st.markdown('<div class="sec">Top Gateway Prescribers</div>', unsafe_allow_html=True)
-        if len(sp) > 0:
-            top_gw = sp.head(12).copy()
-            top_gw["HCP"] = top_gw.apply(lambda r: f"Dr {r['last_name']}, {str(r['first_name'])[:1]}.", axis=1)
-            top_gw["State"] = top_gw["state"].apply(state_full)
-            top_gw["Metformin"] = top_gw["biguanide_fills"].apply(lambda x: f"{int(x):,}")
-            top_gw["Advanced"]  = (top_gw["glp1_fills"]+top_gw["sglt2_fills"]+top_gw["dpp4_fills"]).apply(lambda x: f"{int(x):,}")
-            disp_gw = top_gw[["HCP","specialty","State","Metformin","Advanced","gateway_type"]].copy()
-            disp_gw.columns = ["HCP","Specialty","State","Metformin","Advanced","Type"]
-            disp_gw.index = range(1, len(disp_gw)+1)
-            st.dataframe(disp_gw, use_container_width=True, hide_index=False)
-
-    # ── Section 3: OTC-Proxy / Screening Campaign Targets ────────────────────
-    st.markdown('<div class="sec">OTC-Proxy Signal — Primary Care HCPs in High-T2D States, Low Rx Volume</div>',
-                unsafe_allow_html=True)
-    st.html("""
-    <div style="font-size:0.74rem;color:#6E6E73;margin-bottom:0.8rem;line-height:1.65">
-      These are GPs, internists and family physicians in states with T2D prevalence ≥10.5%
-      who have <em>low</em> diabetes prescription volume (bottom 40% of their specialty).
-      They are seeing pre-diabetic and undiagnosed patients daily but are not yet engaged
-      with diabetes drugs. They are the primary targets for <strong>awareness campaigns,
-      screening programme partnerships, and disease education visits</strong> — not product detailing.
-    </div>
-    """)
-
-    if len(otc_proxy) > 0:
-        oc1, oc2 = st.columns([3, 2])
-        with oc1:
-            otc_disp = otc_proxy[["last_name","first_name","specialty","state","city",
-                                   "fills_2022","volume_decile","targeting_score","segment"]].copy()
-            otc_disp["state"] = otc_disp["state"].apply(state_full)
-            otc_disp["city"]  = otc_disp["city"].apply(lambda x: str(x).title())
-            otc_disp["T2D Prev %"] = otc_disp["state"].map(
-                {state_full(k):v for k,v in CDC_T2D_PREV.items()})
-            otc_disp.columns = ["Last","First","Specialty","State","City",
-                                 "Diabetes Fills","Vol Decile","Score","Segment","T2D Prev %"]
-            otc_disp.index = range(1, len(otc_disp)+1)
-            st.dataframe(otc_disp, use_container_width=True, hide_index=False)
-        with oc2:
-            # Bar: specialty breakdown of OTC proxy pool
-            spec_ct = otc_proxy["specialty"].value_counts().reset_index()
-            spec_ct.columns = ["Specialty","HCPs"]
-            fig_sp = px.bar(spec_ct, x="HCPs", y="Specialty", orientation="h",
-                            color="HCPs", color_continuous_scale=["#D1E8FF","#003DA5"],
-                            labels={"Specialty":"","HCPs":"HCPs in Silent Pool"})
-            fig_sp.update_layout(**CHART_LAYOUT, height=240, showlegend=False,
-                                 coloraxis_showscale=False,
-                                 margin=dict(t=5,b=5,l=5,r=5),
-                                 xaxis=dict(gridcolor="#F5F5F7"),
-                                 yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
-            st.plotly_chart(fig_sp, use_container_width=True)
-            st.html(f"""
-            <div class="insight">
-              <strong>Screening campaign ROI:</strong><br>
-              Each OTC-proxy GP sees ~800 patients/year. If T2D prevalence is 11%,
-              ~88 patients per GP are likely diabetic. A successful screening visit
-              that diagnoses and starts treatment on just 10 of them generates
-              <strong>${10 * 8 * REV_PER_FILL:,} incremental revenue</strong> per HCP per year.
-            </div>
-            """)
-    else:
-        st.info("No OTC-proxy HCPs identified for this territory.")
 
 # ── TABS ───────────────────────────────────────────────────────────────────────
 tab6, tab1, tab2, tab3, tab4, tab5, tab7, tab8, tab9 = st.tabs([
@@ -2696,9 +2378,6 @@ with tab6:
                                  yaxis=dict(gridcolor="#F5F5F7"))
             st.plotly_chart(fig_rc,use_container_width=True)
 
-        # Silent Patient Pool — always shown in RM planner
-        st.markdown("---")
-        render_silent_pool(rm_states, "Southwest Region")
 
     # ══════════════════════════════════════════════════════════════════════════
     # HEAD OF SALES — Quarterly National View
@@ -2775,9 +2454,6 @@ with tab6:
             st.plotly_chart(fig_tgt,use_container_width=True)
             st.dataframe(tdf,use_container_width=True,hide_index=True)
 
-        # Silent Patient Pool — national view
-        st.markdown("---")
-        render_silent_pool([], "National")
 
 # ══════════════════════════════════════════════════════════════════════════════
 # TAB 7 — PREDICTIVE ANALYTICS
