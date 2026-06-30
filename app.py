@@ -874,65 +874,7 @@ st.markdown(f"""
       </div>
     </div>
   </div>
-  <div style='margin-top:0.8rem;display:flex;gap:5px;flex-wrap:wrap'>
-    {"".join(f'<span style="background:rgba(0,0,0,0.04);color:#6B7280;padding:2px 10px;border-radius:6px;font-size:0.61rem;font-weight:500;letter-spacing:0.03em">{t}</span>' for t in ["💊 Diabetes Portfolio","PostgreSQL","227K HCPs","83M+ Rows","CMS 2021–2022","Python · Streamlit · Plotly"])}
-  </div>
 </div>""", unsafe_allow_html=True)
-
-# ── PLATFORM NOTES ────────────────────────────────────────────────────────────
-with st.expander("ℹ️ Platform Scope & Production CRM Notes", expanded=False):
-    st.html("""
-    <div style="padding:0.2rem 0.4rem">
-      <div style="font-size:0.78rem;font-weight:700;color:#1D1D1F;margin-bottom:0.8rem">
-        What this prototype demonstrates vs. a production Salesforce / Veeva deployment
-      </div>
-
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-
-        <div style="background:#EDFBF1;border-radius:12px;padding:12px 14px;border-left:3px solid #34C759">
-          <div style="font-size:0.68rem;font-weight:700;color:#1A7A35;margin-bottom:6px;
-                      text-transform:uppercase;letter-spacing:0.08em">✅ Implemented here</div>
-          <div style="font-size:0.72rem;color:#3A3A3C;line-height:1.8">
-            Composite HCP targeting score (Vol + Growth + Payment)<br>
-            NTILE(10) specialty-normalised decile ranking<br>
-            4-tier segmentation (High Value / Growth / Maintenance / Deprioritise)<br>
-            Rule-based Next Best Action per HCP<br>
-            Loyalty tier model (Loyalist / Intermittent / Tourist / Non-Rx)<br>
-            Call cadence engine by segment (4–24 week cycles)<br>
-            Role-based planning views (Rep / Area / Regional / Head of Sales)<br>
-            KOL identification via CMS Open Payments<br>
-            Territory intelligence — state-level choropleth<br>
-            At-Risk and Breakthrough alert detection
-          </div>
-        </div>
-
-        <div style="background:#FFF8ED;border-radius:12px;padding:12px 14px;border-left:3px solid #FF9500">
-          <div style="font-size:0.68rem;font-weight:700;color:#CC7700;margin-bottom:6px;
-                      text-transform:uppercase;letter-spacing:0.08em">🔧 In a production CRM deployment</div>
-          <div style="font-size:0.72rem;color:#3A3A3C;line-height:1.8">
-            <strong>Account hierarchy</strong> — HCPs modelled as Contacts under Accounts (practice / hospital)<br>
-            <strong>Territory Management 2.0</strong> — automated HCP-to-rep routing, no manual state filter<br>
-            <strong>Activity sync</strong> — every call, sample drop and email logged against HCP record in real time<br>
-            <strong>Einstein NBA</strong> — ML-driven Next Best Action on channel, message and timing<br>
-            <strong>Journey stages</strong> — Unaware → Aware → Trialing → Committed → Advocate progression<br>
-            <strong>Push alerts</strong> — overdue and at-risk notifications via Slack, email, mobile<br>
-            <strong>Closed-loop measurement</strong> — Rx impact of calls (contacted vs uncontacted HCP cohort lift)<br>
-            <strong>Veeva CLM</strong> — approved email, e-detailing and sample management integration
-          </div>
-        </div>
-
-      </div>
-
-      <div style="margin-top:10px;padding:10px 14px;background:#EEF3FC;border-radius:10px;
-                  font-size:0.7rem;color:#4B6A96;line-height:1.6">
-        <strong style="color:#1D1D1F">Call activity data in this prototype is simulated</strong>
-        — seeded deterministically by NPI for reproducibility. Cadence logic, loyalty tiers and
-        segmentation rules mirror commercial pharma CRM methodology. NBA recommendations are
-        rule-based (not ML); in Salesforce Health Cloud + Einstein, these would be model-scored
-        and personalised per HCP interaction history.
-      </div>
-    </div>
-    """)
 
 # ── KPIs ───────────────────────────────────────────────────────────────────────
 sc     = filt["segment"].value_counts()

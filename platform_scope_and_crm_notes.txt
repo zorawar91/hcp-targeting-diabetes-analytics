@@ -1,0 +1,82 @@
+PLATFORM SCOPE & PRODUCTION CRM NOTES
+HCP Targeting & Brand Performance Analytics — Diabetes
+======================================================
+
+What this prototype demonstrates vs. a production Salesforce / Veeva deployment
+
+
+IMPLEMENTED IN THIS PROTOTYPE
+------------------------------
+- Composite HCP targeting score (Volume + Growth + Payment)
+- NTILE(10) specialty-normalised decile ranking
+- 4-tier segmentation: High Value / Growth / Maintenance / Deprioritise
+- Rule-based Next Best Action (NBA) per HCP
+- Loyalty tier model: Loyalist / Intermittent / Tourist / Non-Rx
+- Call cadence engine by segment (4–24 week cycles)
+- Role-based planning views: Rep / Area Manager / Regional Manager / Head of Sales
+- KOL identification via CMS Open Payments data
+- Territory intelligence — state-level choropleth map
+- At-Risk and Breakthrough alert detection
+- Silent Patient Pool Finder (moved to separate project)
+- Diagnostic Gap Index per state (CDC prevalence vs actual Rx density)
+- OTC-proxy HCP identification (primary care, low Rx, high-T2D states)
+
+
+IN A PRODUCTION CRM DEPLOYMENT (Salesforce Health Cloud / Veeva CRM)
+----------------------------------------------------------------------
+- Account hierarchy: HCPs modelled as Contacts under Accounts (practice / hospital / health system)
+- Territory Management 2.0: automated HCP-to-rep routing, no manual state filter needed
+- Activity sync: every call, sample drop and email logged against the HCP record in real time
+- Einstein Next Best Action: ML-driven NBA on channel, message and timing — not rule-based
+- Journey stages: Unaware → Aware → Trialing → Committed → Advocate progression per HCP
+- Push alerts: overdue and at-risk notifications via Slack, email, mobile
+- Closed-loop measurement: Rx impact of calls (contacted vs uncontacted HCP cohort lift)
+- Veeva CLM: approved email, e-detailing and sample management integration
+- CRM-native call logging: reps log outcomes (reached / no see / left sample) after each visit
+- Segmentation refresh: automated monthly re-scoring as new Rx data arrives
+
+
+DATA NOTES
+----------
+- Call activity data in this prototype is SIMULATED — seeded deterministically by NPI
+  for reproducibility across sessions. No real call history exists in the dataset.
+- Cadence logic, loyalty tiers and segmentation rules mirror commercial pharma CRM methodology.
+- NBA recommendations are rule-based (not ML). In Salesforce Health Cloud + Einstein,
+  these would be model-scored and personalised per HCP interaction history.
+- Prescription data: CMS Medicare Part D 2021–2022 (public dataset)
+- Payment data: CMS Open Payments 2021–2022 (public dataset)
+- HCP registry: NPPES National Provider Identifier database (public dataset)
+- Total records: ~227K HCPs, 83M+ prescription rows across diabetes drug classes
+
+
+DRUG CLASSES TRACKED
+--------------------
+- GLP-1 Agonists (semaglutide, liraglutide, dulaglutide, tirzepatide, exenatide)
+- SGLT2 Inhibitors (empagliflozin, dapagliflozin, canagliflozin, ertugliflozin)
+- DPP-4 Inhibitors (sitagliptin, saxagliptin, linagliptin, alogliptin)
+- Biguanides / Metformin (metformin HCl, metformin HCl ER)
+- Insulins (glargine, aspart, lispro, degludec, detemir and biosimilars)
+
+
+TARGETING SCORE FORMULA
+-----------------------
+Score = (volume_decile / 10 × 0.40)
+      + (growth_decile  / 10 × 0.40)
+      + (payment_score_normalised × 0.20)
+
+Range: 0.0 (lowest) to 1.0 (highest)
+
+Segment assignment:
+- High Value:    volume_decile >= 8 AND growth_decile >= 8
+- Growth:        growth_decile >= 8 AND volume_decile < 8
+- Maintenance:   volume_decile >= 8 AND growth_decile < 8
+- Deprioritise:  all others
+
+
+TECH STACK
+----------
+- Backend:    PostgreSQL (Neon serverless) with star schema
+- Pipeline:   Python (pandas, psycopg2, SQLAlchemy)
+- Frontend:   Streamlit + Plotly
+- Hosting:    Streamlit Cloud (auto-deploy from GitHub)
+- Data:       CMS public datasets (Part D, Open Payments, NPPES)
