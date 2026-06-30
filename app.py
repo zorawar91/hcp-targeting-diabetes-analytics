@@ -2496,126 +2496,288 @@ with tab6:
     # AREA / REGIONAL / HOS PLANNER (Sales Rep handled above with st.stop())
     # ══════════════════════════════════════════════════════════════════════════
     if role == "Area Manager":
-        # Hard-assigned: Texas, Southwest region
-        region_sel    = "Southwest"
-        am_state      = "TX"
-        region_states = US_REGIONS[region_sel]
-        # AM planner intentionally omits the min_score threshold — managers need
-        # the full segment mix (Growth, Maintenance) not just high-scoring HCPs.
-        am_filt = df[df["state"] == am_state].copy()
-        if sp_val:  am_filt = am_filt[am_filt["specialty"]==sp_val]
-        if seg_sel: am_filt = am_filt[am_filt["segment"].isin(seg_sel)]
-        am_filt = am_filt.sort_values("targeting_score", ascending=False)
+        # ── Hard-assigned: Texas territory ────────────────────────────────────
+        am_state = "TX"
+        am_filt  = df[df["state"] == am_state].copy().sort_values("targeting_score", ascending=False)
+        now_am   = datetime.now()
 
-        am_views = st.radio("View:", ["Weekly Team Overview","Monthly Coverage","Quarterly Strategy"],
-                            horizontal=True, label_visibility="collapsed")
+        # ── Helper: priority label (no analyst score shown) ───────────────────
+        def am_priority_label(score):
+            if score >= 0.72: return ("Priority 1", "#003DA5", "#EBF5FF")
+            if score >= 0.50: return ("Priority 2", "#B45309", "#FFFBEB")
+            return ("Priority 3", "#6E6E73", "#F5F5F7")
 
-        a1,a2,a3,a4 = st.columns(4)
-        a1.metric("Texas HCPs",  f"{len(am_filt):,}")
-        a2.metric("High Value",  f"{(am_filt['segment']=='High Value').sum():,}")
-        a3.metric("Growth",      f"{(am_filt['segment']=='Growth').sum():,}")
-        a4.metric("Region",      "Southwest")
+        # ── Helper: pre-call brief for AM personal accounts ───────────────────
+        def am_precall_brief(row):
+            seg    = row.get("segment", "")
+            growth = float(row.get("yoy_growth_pct", 0) or 0)
+            fills  = int(row.get("fills_2022", 0) or 0)
+            kol    = float(row.get("opinion_leader_payments", 0) or 0)
+            parts  = []
+            if kol > 0:
+                parts.append(f"KOL — ${kol:,.0f} in advisory/speaker payments. Lead with partnership language, not a product pitch.")
+            if seg == "High Value":
+                parts.append(f"Top prescriber ({fills:,} fills). Protect the relationship — confirm access frequency and ask about patient management gaps.")
+            elif seg == "Growth":
+                parts.append(f"Rising prescriber (+{growth:.1f}% YoY). Reinforce momentum and discuss broadening patient criteria.")
+            elif seg == "Maintenance":
+                parts.append(f"Established volume ({fills:,} fills) but growth flat. Explore what would shift additional patients to your brand.")
+            if growth < -5 and seg == "High Value":
+                parts.append(f"Declining trend ({growth:.1f}% YoY) — priority intervention. Understand root cause before this call.")
+            if not parts:
+                parts.append("Confirm prescribing preferences and leave materials on new patient support programs.")
+            return " ".join(parts)
 
-        if am_views == "Weekly Team Overview":
-            st.markdown('<div class="sec">Weekly Team Overview — Texas (TX)</div>',
-                        unsafe_allow_html=True)
-            state_summary=[]
-            for st_code in [am_state]:
-                sd=am_filt[am_filt["state"]==st_code]
-                if not len(sd): continue
-                ov=sum(1 for _,r in sd.head(100).iterrows() if call_due_status(r)[0]=="Overdue")
-                state_summary.append({
-                    "State": state_full(st_code), "Total HCPs": len(sd),
-                    "High Value": (sd["segment"]=="High Value").sum(),
-                    "Growth":     (sd["segment"]=="Growth").sum(),
-                    "Overdue Calls": ov,
-                    "Avg Score":  round(float(sd["targeting_score"].mean()),3),
+        # ── Simulated rep assignments (NPI mod 5) ─────────────────────────────
+        _REP_NAMES = {0: "A. Smith", 1: "J. Johnson", 2: "K. Williams", 3: "M. Brown", 4: "L. Davis"}
+        am_filt = am_filt.copy()
+        am_filt["_rep"] = am_filt["npi"].apply(lambda n: _REP_NAMES[int(n) % 5])
+
+        # ── 4 focused tabs ────────────────────────────────────────────────────
+        am_t1, am_t2, am_t3, am_t4 = st.tabs(["My Team", "Territory Gaps", "Strategic Accounts", "Territory Health"])
+
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB 1 — MY TEAM: rep-by-rep performance scorecard
+        # ══════════════════════════════════════════════════════════════════════
+        with am_t1:
+            st.markdown('<div class="sec">Team Performance — Texas</div>', unsafe_allow_html=True)
+
+            team_rows = []
+            for rep_name in _REP_NAMES.values():
+                rep_df = am_filt[am_filt["_rep"] == rep_name]
+                if not len(rep_df): continue
+                hv_df        = rep_df[rep_df["segment"] == "High Value"]
+                called_30d   = sum(1 for _, r in rep_df.head(150).iterrows()
+                                   if (now_am - sim_last_call(r.get("npi", 0))).days <= 30)
+                hv_covered   = sum(1 for _, r in hv_df.head(50).iterrows()
+                                   if (now_am - sim_last_call(r.get("npi", 0))).days <= 28)
+                overdue      = sum(1 for _, r in rep_df.head(100).iterrows()
+                                   if call_due_status(r)[0] == "Overdue")
+                cov_pct      = round(called_30d / max(len(rep_df), 1) * 100)
+                hv_cov_pct   = round(hv_covered / max(len(hv_df), 1) * 100)
+                status_text  = "On Track" if cov_pct >= 80 else ("At Risk" if cov_pct >= 60 else "Behind")
+                status_icon  = "✓" if cov_pct >= 80 else ("⚠" if cov_pct >= 60 else "✕")
+                team_rows.append({
+                    "rep": rep_name, "hcps": len(rep_df), "hv": len(hv_df),
+                    "calls": called_30d, "cov": cov_pct, "hv_cov": hv_cov_pct,
+                    "overdue": overdue, "status": status_text, "icon": status_icon,
                 })
-            if state_summary:
-                ss_df=pd.DataFrame(state_summary).sort_values("High Value",ascending=False)
-                st.dataframe(ss_df,use_container_width=True,hide_index=True)
 
-            # Top 10 HCPs across region to coach reps on
-            st.markdown(f'<div class="sec">Top 10 Regional Priority HCPs — coaching focus</div>',
-                        unsafe_allow_html=True)
-            top10=am_filt.head(10).copy()
-            top10["State"]=top10["state"].apply(state_full)
-            top10["Status"]=top10.apply(lambda r: f"{call_due_status(r)[0]} · {call_due_status(r)[1]}",axis=1)
-            top10["Action"]=top10.apply(recommended_action,axis=1)
-            disp10=top10[["last_name","first_name","specialty","city","State",
-                          "targeting_score","segment","Status","Action"]].copy()
-            disp10.columns=["Last","First","Specialty","City","State","Score","Segment","Status","Action"]
-            disp10.index=range(1,len(disp10)+1)
-            st.dataframe(disp10,use_container_width=True,hide_index=False)
+            for row in sorted(team_rows, key=lambda x: x["cov"]):
+                cov = row["cov"]
+                bg  = "#F0FFF4" if cov >= 80 else ("#FFFBEB" if cov >= 60 else "#FFF5F5")
+                bd  = "#34C759" if cov >= 80 else ("#FF9500" if cov >= 60 else "#FF3B30")
+                tc  = "#1A7F38" if cov >= 80 else ("#92400E" if cov >= 60 else "#C62828")
+                st.markdown(f"""
+                <div style="border:1px solid {bd};border-radius:10px;padding:14px 18px;
+                            margin-bottom:10px;background:{bg};">
+                  <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:600;font-size:15px;color:#1D1D1F;">{row['rep']}</span>
+                    <span style="font-size:13px;font-weight:600;color:{tc};">{row['icon']} {row['status']}</span>
+                  </div>
+                  <div style="display:flex;gap:28px;margin-top:8px;font-size:13px;color:#3C3C43;">
+                    <span><b>{row['calls']}</b> calls this month</span>
+                    <span><b>{row['cov']}%</b> coverage</span>
+                    <span><b>{row['hv_cov']}%</b> HV coverage</span>
+                    <span><b>{row['hv']}</b> HV accounts</span>
+                    <span style="color:#FF3B30;"><b>{row['overdue']}</b> overdue</span>
+                  </div>
+                </div>""", unsafe_allow_html=True)
 
-        elif am_views == "Monthly Coverage":
-            st.markdown('<div class="sec">Monthly Coverage — Texas (TX)</div>',
-                        unsafe_allow_html=True)
-            cover_rows=[]
-            for st_code in [am_state]:
-                sd=am_filt[am_filt["state"]==st_code]
-                if not len(sd): continue
-                ct=sum(1 for _,r in sd.head(200).iterrows()
-                       if (datetime.now()-sim_last_call(r.get("npi",0))).days<=30)
-                ov=sum(1 for _,r in sd.head(200).iterrows() if call_due_status(r)[0]=="Overdue")
-                cover_rows.append({
-                    "State":state_full(st_code),"HCPs":len(sd),
-                    "Contacted (30d)":ct,"Coverage %":round(ct/min(len(sd),200)*100),
-                    "Overdue":ov,"Target":85
-                })
-            if cover_rows:
-                cv_df=pd.DataFrame(cover_rows).sort_values("Coverage %")
-                fig_am=px.bar(cv_df,x="Coverage %",y="State",orientation="h",
-                              color="Coverage %",color_continuous_scale=["#FF3B30","#FF9500","#34C759"],
-                              text="Coverage %",labels={"State":"","Coverage %":"Coverage %"})
-                fig_am.update_traces(texttemplate="%{text:.0f}%",textposition="outside")
-                fig_am.add_vline(x=85,line_dash="dot",line_color="#8E8E93",
-                                 annotation_text="85% target",annotation_position="top right")
-                fig_am.update_layout(**CHART_LAYOUT,height=max(250,len(cover_rows)*35),
-                                     coloraxis_showscale=False,showlegend=False,
-                                     margin=dict(t=5,b=5,l=5,r=60),
-                                     xaxis=dict(range=[0,110],gridcolor="#F5F5F7"),
-                                     yaxis=dict(autorange="reversed",gridcolor="#F5F5F7"))
-                st.plotly_chart(fig_am,use_container_width=True)
-                st.dataframe(cv_df,use_container_width=True,hide_index=True)
+            # Coverage bar chart
+            if team_rows:
+                team_chart_df = pd.DataFrame(
+                    [{"Rep": r["rep"], "Coverage %": r["cov"]} for r in team_rows]
+                ).sort_values("Coverage %")
+                fig_team = px.bar(team_chart_df, x="Rep", y="Coverage %",
+                                  color="Coverage %",
+                                  color_continuous_scale=["#FF3B30", "#FF9500", "#34C759"],
+                                  text="Coverage %",
+                                  labels={"Rep": "", "Coverage %": "Coverage %"})
+                fig_team.update_traces(texttemplate="%{text:.0f}%", textposition="outside")
+                fig_team.add_hline(y=85, line_dash="dot", line_color="#8E8E93",
+                                   annotation_text="85% target", annotation_position="top right")
+                fig_team.update_layout(**CHART_LAYOUT, height=260, coloraxis_showscale=False,
+                                       margin=dict(t=10, b=5, l=5, r=20),
+                                       yaxis=dict(range=[0, 110], gridcolor="#F5F5F7"),
+                                       xaxis=dict(gridcolor="#F5F5F7"))
+                st.plotly_chart(fig_team, use_container_width=True)
 
-        else:  # Quarterly
-            q=(datetime.now().month-1)//3+1
-            st.markdown(f'<div class="sec">Q{q} Quarterly Strategy — {region_sel} Region</div>',
-                        unsafe_allow_html=True)
-            seg_c=am_filt["segment"].value_counts()
-            qs1,qs2,qs3,qs4=st.columns(4)
-            for cw,sn,em in zip([qs1,qs2,qs3,qs4],
-                ["High Value","Growth","Maintenance","Deprioritise"],["🔴","🟢","🟠","⚫"]):
-                n=seg_c.get(sn,0); tot=len(am_filt)
-                cw.metric(f"{em} {sn}",f"{n:,}",f"{n/tot*100:.0f}% of region" if tot else "")
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB 2 — TERRITORY GAPS: uncovered priority accounts
+        # ══════════════════════════════════════════════════════════════════════
+        with am_t2:
+            st.markdown('<div class="sec">Uncovered Priority Accounts — Texas</div>', unsafe_allow_html=True)
 
-            ql2,qr2=st.columns(2)
-            with ql2:
-                st.markdown('<div class="sec">Conversion Targets — Growth → High Value</div>',
-                            unsafe_allow_html=True)
-                conv=am_filt[(am_filt["segment"]=="Growth")&(am_filt["volume_decile"]>=7)].head(10).copy()
-                conv["State"]=conv["state"].apply(state_full)
-                conv2=conv[["last_name","first_name","specialty","city","State",
-                             "volume_decile","growth_decile","targeting_score"]].copy()
-                conv2.columns=["Last","First","Specialty","City","State","Vol D","Growth D","Score"]
-                conv2.index=range(1,len(conv2)+1)
-                if len(conv2): st.dataframe(conv2,use_container_width=True,hide_index=False)
-                else: st.info("No near-threshold Growth HCPs in this region.")
-            with qr2:
-                st.markdown('<div class="sec">At-Risk HCPs — High Value, Declining Rx</div>',
-                            unsafe_allow_html=True)
-                risk=am_filt[(am_filt["segment"]=="High Value")&
-                             (am_filt["yoy_growth_pct"].notna())&
-                             (am_filt["yoy_growth_pct"]<0)].head(10).copy()
-                risk["State"]=risk["state"].apply(state_full)
-                risk2=risk[["last_name","first_name","specialty","State",
-                             "fills_2022","yoy_growth_pct"]].copy()
-                risk2["yoy_growth_pct"]=risk2["yoy_growth_pct"].apply(lambda x:f"{x:.1f}%")
-                risk2.columns=["Last","First","Specialty","State","Fills 2022","YoY %"]
-                risk2.index=range(1,len(risk2)+1)
-                if len(risk2): st.dataframe(risk2,use_container_width=True,hide_index=False)
-                else: st.success("No at-risk HCPs in this region.")
+            gap_rows = []
+            for _, r in am_filt.head(300).iterrows():
+                status_g, detail_g, _, _ = call_due_status(r)
+                days_since = (now_am - sim_last_call(r.get("npi", 0))).days
+                if status_g == "Overdue" or days_since > 30:
+                    plbl, _, _ = am_priority_label(r.get("targeting_score", 0))
+                    gap_rows.append({
+                        "_score":         r.get("targeting_score", 0),
+                        "Rep":            r.get("_rep", ""),
+                        "Last":           r.get("last_name", ""),
+                        "First":          r.get("first_name", ""),
+                        "Specialty":      r.get("specialty", ""),
+                        "City":           r.get("city", ""),
+                        "Segment":        r.get("segment", ""),
+                        "Priority":       plbl,
+                        "Days Since Call": days_since,
+                        "Status":         detail_g,
+                    })
+
+            if gap_rows:
+                gap_df = pd.DataFrame(gap_rows).sort_values("_score", ascending=False)
+
+                g1, g2, g3 = st.columns(3)
+                g1.metric("Uncovered HCPs", f"{len(gap_df):,}")
+                g2.metric("Priority 1 at Risk", f"{(gap_df['Priority']=='Priority 1').sum():,}")
+                g3.metric("Avg Days Dark", f"{round(gap_df['Days Since Call'].mean())}d")
+
+                disp_gap = gap_df[["Rep","Last","First","Specialty","City","Segment","Priority","Days Since Call","Status"]].copy()
+                disp_gap.index = range(1, len(disp_gap)+1)
+                st.dataframe(disp_gap, use_container_width=True, hide_index=False)
+
+                st.markdown("""<div style="background:#FFF5F5;border:1px solid #FFCDD2;border-radius:8px;
+                            padding:12px 16px;margin-top:8px;font-size:13px;color:#C62828;">
+                            Priority 1 accounts going dark risk competitive switching.
+                            Reassign or personally visit the highest-value accounts above.
+                            </div>""", unsafe_allow_html=True)
+            else:
+                st.success("No territory gaps — all HCPs contacted within cadence.")
+
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB 3 — STRATEGIC ACCOUNTS: accounts for personal AM investment
+        # ══════════════════════════════════════════════════════════════════════
+        with am_t3:
+            st.markdown('<div class="sec">Accounts for Personal Investment</div>', unsafe_allow_html=True)
+            st.markdown("""<div style="font-size:13px;color:#6E6E73;margin-bottom:16px;">
+                KOLs and high-value accounts where your direct relationship carries more weight than a rep visit.
+                </div>""", unsafe_allow_html=True)
+
+            strat = am_filt[
+                (am_filt["opinion_leader_payments"] > 0) |
+                (
+                    (am_filt["segment"] == "High Value") &
+                    (am_filt["yoy_growth_pct"].notna()) &
+                    (am_filt["yoy_growth_pct"] < -3)
+                )
+            ].copy().head(20)
+
+            if len(strat) == 0:
+                st.info("No strategic accounts identified for this territory.")
+            else:
+                for _, row in strat.iterrows():
+                    npi      = row.get("npi", 0)
+                    score    = row.get("targeting_score", 0)
+                    seg      = row.get("segment", "")
+                    plbl, pc, pbg = am_priority_label(score)
+                    is_kol   = float(row.get("opinion_leader_payments", 0) or 0) > 0
+                    kol_pay  = float(row.get("opinion_leader_payments", 0) or 0)
+                    growth   = float(row.get("yoy_growth_pct", 0) or 0)
+                    days_ago = (now_am - sim_last_call(npi)).days
+                    brief    = am_precall_brief(row)
+
+                    kol_tag = ' <span style="background:#F0F4FF;color:#003DA5;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600;">KOL</span>' if is_kol else ""
+                    decline_tag = f' <span style="background:#FFF5F5;color:#C62828;border-radius:4px;padding:2px 7px;font-size:11px;font-weight:600;">Declining {growth:.1f}%</span>' if growth < -3 else ""
+
+                    with st.expander(
+                        f"Dr. {row.get('last_name','')} {row.get('first_name','')} — "
+                        f"{row.get('specialty','')} · {row.get('city','')}",
+                        expanded=False
+                    ):
+                        sc1, sc2, sc3 = st.columns(3)
+                        sc1.metric("Segment", seg)
+                        sc2.metric("Priority", plbl)
+                        sc3.metric("Last Contact", f"{days_ago}d ago")
+
+                        tags_html = ""
+                        if is_kol:
+                            tags_html += f'<span style="background:#F0F4FF;color:#003DA5;border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;margin-right:6px;">KOL — ${kol_pay:,.0f} advisory payments</span>'
+                        if growth < -3:
+                            tags_html += f'<span style="background:#FFF5F5;color:#C62828;border-radius:5px;padding:3px 10px;font-size:12px;font-weight:600;">Declining {growth:.1f}% YoY</span>'
+                        if tags_html:
+                            st.markdown(f'<div style="margin:6px 0;">{tags_html}</div>', unsafe_allow_html=True)
+
+                        st.markdown(
+                            f'<div style="background:#F9F9F9;border-radius:8px;padding:12px 14px;'
+                            f'margin-top:10px;font-size:13px;color:#3C3C43;line-height:1.6;">{brief}</div>',
+                            unsafe_allow_html=True
+                        )
+                        st.markdown(
+                            f'<div style="font-size:12px;color:#6E6E73;margin-top:8px;">'
+                            f'Assigned Rep: {row.get("_rep","")}</div>',
+                            unsafe_allow_html=True
+                        )
+
+        # ══════════════════════════════════════════════════════════════════════
+        # TAB 4 — TERRITORY HEALTH: monthly/quarterly overview
+        # ══════════════════════════════════════════════════════════════════════
+        with am_t4:
+            q_am = (now_am.month - 1) // 3 + 1
+            st.markdown(f'<div class="sec">Territory Health — Texas · Q{q_am}</div>', unsafe_allow_html=True)
+
+            hv_count   = (am_filt["segment"] == "High Value").sum()
+            total_am   = len(am_filt)
+            called_30d = sum(1 for _, r in am_filt.head(300).iterrows()
+                             if (now_am - sim_last_call(r.get("npi", 0))).days <= 30)
+            cov_pct_am = round(called_30d / max(total_am, 1) * 100)
+            overdue_am = sum(1 for _, r in am_filt.head(300).iterrows()
+                             if call_due_status(r)[0] == "Overdue")
+
+            h1, h2, h3, h4 = st.columns(4)
+            h1.metric("Total HCPs", f"{total_am:,}")
+            h2.metric("High Value", f"{hv_count:,}", f"{hv_count/max(total_am,1)*100:.0f}% of territory")
+            h3.metric("Monthly Coverage", f"{cov_pct_am}%",
+                      "Target met" if cov_pct_am >= 85 else "Below 85% target")
+            h4.metric("Overdue Calls", f"{overdue_am:,}")
+
+            hl, hr = st.columns(2)
+            with hl:
+                st.markdown('<div class="sec">Segment Mix</div>', unsafe_allow_html=True)
+                seg_counts = am_filt["segment"].value_counts().reset_index()
+                seg_counts.columns = ["Segment", "Count"]
+                fig_seg = px.pie(seg_counts, names="Segment", values="Count", hole=0.6,
+                                 color="Segment", color_discrete_map=SEG_COLORS)
+                fig_seg.update_traces(textinfo="percent+label", textfont_size=12)
+                fig_seg.update_layout(**CHART_LAYOUT, height=260, showlegend=False,
+                                      margin=dict(t=10, b=10, l=10, r=10))
+                st.plotly_chart(fig_seg, use_container_width=True)
+
+            with hr:
+                st.markdown('<div class="sec">At-Risk — High Value, Declining Rx</div>', unsafe_allow_html=True)
+                risk_th = am_filt[
+                    (am_filt["segment"] == "High Value") &
+                    (am_filt["yoy_growth_pct"].notna()) &
+                    (am_filt["yoy_growth_pct"] < 0)
+                ].head(8).copy()
+                if len(risk_th):
+                    risk_th["YoY %"]    = risk_th["yoy_growth_pct"].apply(lambda x: f"{x:.1f}%")
+                    risk_th["Rep"]      = risk_th["_rep"]
+                    risk_th["Priority"] = risk_th["targeting_score"].apply(lambda s: am_priority_label(s)[0])
+                    r2 = risk_th[["last_name","first_name","city","YoY %","Rep","Priority"]].copy()
+                    r2.columns = ["Last","First","City","YoY %","Rep","Priority"]
+                    r2.index = range(1, len(r2)+1)
+                    st.dataframe(r2, use_container_width=True, hide_index=False)
+                else:
+                    st.success("No at-risk HV accounts.")
+
+            st.markdown('<div class="sec">Conversion Targets — Growth → High Value</div>', unsafe_allow_html=True)
+            conv_th = am_filt[
+                (am_filt["segment"] == "Growth") &
+                (am_filt["volume_decile"] >= 7)
+            ].head(10).copy()
+            if len(conv_th):
+                conv_th["Priority"] = conv_th["targeting_score"].apply(lambda s: am_priority_label(s)[0])
+                conv_th["Rep"]      = conv_th["_rep"]
+                conv2 = conv_th[["last_name","first_name","specialty","city","Priority","Rep"]].copy()
+                conv2.columns = ["Last","First","Specialty","City","Priority","Rep"]
+                conv2.index = range(1, len(conv2)+1)
+                st.dataframe(conv2, use_container_width=True, hide_index=False)
+            else:
+                st.info("No near-threshold Growth HCPs in this territory.")
 
     # ══════════════════════════════════════════════════════════════════════════
     # REGIONAL MANAGER — Monthly · Quarterly (multi-region)
