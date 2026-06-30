@@ -1106,7 +1106,11 @@ st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
 # ── TABS ───────────────────────────────────────────────────────────────────────
 # ── SALES REP — dedicated view, no outer tabs ─────────────────────────────────
 if role == "Sales Rep":
-    # Base pool: full territory, sorted by score
+    # ── Session state for call logging ────────────────────────────────────
+    if "called_npis" not in st.session_state:
+        st.session_state.called_npis = set()
+
+    # ── Base pool ─────────────────────────────────────────────────────────
     _rep_base = df[df["state"] == st_val].copy() if st_val else df.copy()
     if sp_val:   _rep_base = _rep_base[_rep_base["specialty"] == sp_val]
     if kol_only: _rep_base = _rep_base[_rep_base["opinion_leader_payments"] > 0]
@@ -1116,7 +1120,53 @@ if role == "Sales Rep":
     today = now.date()
     terr  = state_full(st_val) if st_val else "All States"
 
+    # ── Helper: human priority label ──────────────────────────────────────
+    def priority_label(score):
+        if score >= 0.72: return ("Priority 1", "#003DA5", "#EBF5FF")
+        if score >= 0.50: return ("Priority 2", "#B45309", "#FFFBEB")
+        return ("Priority 3", "#6E6E73", "#F5F5F7")
+
+    # ── Helper: pre-call briefing from Rx pattern ─────────────────────────
+    def precall_brief(row):
+        seg    = row.get("segment","")
+        growth = float(row.get("yoy_growth_pct", 0) or 0)
+        fills  = int(row.get("fills_2022", 0) or 0)
+        vd     = int(row.get("volume_decile", 0) or 0)
+        gd     = int(row.get("growth_decile", 0) or 0)
+        kol    = float(row.get("opinion_leader_payments", 0) or 0)
+        spec   = str(row.get("specialty","")).lower()
+
+        if kol > 0:
+            return (f"KOL with ${kol:,.0f} in speaker / advisory fees. "
+                    "Open with programme invitation or upcoming advisory board. "
+                    "Reinforce scientific partnership — do not lead with product pitch.")
+        if seg == "High Value":
+            if growth > 10:
+                return (f"High-volume prescriber with {growth:+.0f}% YoY growth — actively expanding. "
+                        "Defend current Rx share. Probe for any competitive detailing. "
+                        "Reinforce outcomes data and patient convenience advantages.")
+            elif growth < -5:
+                return (f"High-volume prescriber but volume declining {growth:.0f}% YoY — at risk. "
+                        "Identify the reason: formulary change, competitive switch, or patient mix shift. "
+                        "Priority: restore confidence, offer clinical support resources.")
+            else:
+                return (f"Established high-value prescriber, stable volume ({fills:,} fills). "
+                        "Relationship maintenance visit. Bring updated payer coverage data "
+                        "and check for any patient access issues.")
+        if seg == "Growth":
+            return (f"Growing prescriber — {growth:+.0f}% YoY, {fills:,} fills. "
+                    "Still in the early-adoption phase. Lead with GLP-1 cardiovascular "
+                    "outcomes and SGLT2 renal benefit data. Ask about current patient "
+                    "referral pathway for T2D intensification.")
+        if seg == "Maintenance":
+            return (f"Reliable mid-tier prescriber ({fills:,} fills, flat growth). "
+                    "Quick relationship touch — 10 min max. Leave updated samples "
+                    "and check formulary tier status. Watch for growth signals.")
+        return ("Introductory visit. Establish relationship, understand their T2D "
+                "patient profile and current prescribing preference before pitching.")
+
     # ── Territory header ──────────────────────────────────────────────────
+    calls_logged = len(st.session_state.called_npis)
     hv_n   = int((rep_filt["segment"]=="High Value").sum())
     gr_n   = int((rep_filt["segment"]=="Growth").sum())
     ov_n   = sum(1 for _,r in rep_filt.head(200).iterrows() if call_due_status(r)[0]=="Overdue")
@@ -1141,6 +1191,8 @@ if role == "Sales Rep":
           <div style="font-size:0.68rem;color:#6E6E73">Overdue Calls</div></div>
         <div><div style="font-size:1.6rem;font-weight:800;color:#FF9500;letter-spacing:-0.03em">{due_n:,}</div>
           <div style="font-size:0.68rem;color:#6E6E73">Due Soon</div></div>
+        <div><div style="font-size:1.6rem;font-weight:800;color:#1A7A40;letter-spacing:-0.03em">{calls_logged}</div>
+          <div style="font-size:0.68rem;color:#6E6E73">Logged Today</div></div>
       </div>
     </div>
     """)
@@ -1165,58 +1217,91 @@ if role == "Sales Rep":
             kol_call = rep_filt[rep_filt["segment"]=="Maintenance"].head(1)
         total_today = len(hv_calls) + len(gr_calls) + len(kol_call)
 
-        st.markdown(f'<div class="sec">Today\'s Call Plan &nbsp;·&nbsp; {total_today} visits scheduled</div>',
+        # ── Alert: HV HCPs with zero visits this month ───────────────────────
+        mo_start     = now.replace(day=1)
+        hv_pool_al   = rep_filt[rep_filt["segment"]=="High Value"].head(80)
+        hv_zero_mo   = hv_pool_al[~hv_pool_al["npi"].apply(
+            lambda n: sim_last_call(n) >= mo_start)]
+        if len(hv_zero_mo) > 0:
+            names_str = ", ".join(
+                f"Dr {r['last_name']}" for _,r in hv_zero_mo.head(3).iterrows()
+            ) + (f" +{len(hv_zero_mo)-3} more" if len(hv_zero_mo)>3 else "")
+            st.html(f"""
+            <div style="background:#FEF2F2;border-radius:12px;padding:12px 16px;
+                        margin-bottom:1rem;border-left:4px solid #FF3B30">
+              <div style="font-size:0.72rem;font-weight:700;color:#C0392B">
+                {len(hv_zero_mo)} High Value HCPs not visited this month
+              </div>
+              <div style="font-size:0.7rem;color:#6E6E73;margin-top:3px">
+                {names_str} — schedule before month end to protect Rx share.
+              </div>
+            </div>""")
+
+        st.markdown(f'<div class="sec">Today\'s Call Plan &nbsp;·&nbsp; {total_today} visits · route ordered by city</div>',
                     unsafe_allow_html=True)
 
-        def _call_card(row, accent):
-            seg      = row.get("segment","")
-            sc_c     = SEG_COLORS.get(seg,"#8E8E93")
-            sc_bg    = SEG_BG.get(seg,"#F5F5F7")
-            status, detail, st_c, st_bg = call_due_status(row)
-            action   = recommended_action(row)
-            cadence  = cadence_label(row)
-            kol_flag = " · KOL" if row.get("opinion_leader_payments",0)>0 else ""
-            return f"""
-            <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
-                        border-left:4px solid {accent};
-                        box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:10px">
-              <div style="font-size:0.9rem;font-weight:700;color:#1D1D1F">
-                Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
-                <span style="font-weight:400;color:#8E8E93;font-size:0.75rem">
-                  {row.get("credential","") or ""}{kol_flag}
-                </span>
-              </div>
-              <div style="font-size:0.72rem;color:#6E6E73;margin-top:2px">
-                {str(row.get("specialty",""))[:35]} &nbsp;·&nbsp;
-                {str(row.get("city","")).title()}
-              </div>
-              <div style="display:flex;gap:5px;margin:8px 0 6px;flex-wrap:wrap;align-items:center">
-                <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;
-                  border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
-                <span style="background:{st_bg};color:{st_c};padding:2px 9px;
-                  border-radius:980px;font-size:0.63rem;font-weight:700">{status} · {detail}</span>
-                <span style="font-size:0.63rem;color:#8E8E93">Score {row.get("targeting_score",0):.3f}</span>
-              </div>
-              <div style="font-size:0.73rem;color:#003DA5;font-weight:600">→ {action}</div>
-              <div style="font-size:0.64rem;color:#AEAEB2;margin-top:3px">{cadence}</div>
-            </div>"""
+        # Build full day list in route order (group by city to minimise driving)
+        all_today = pd.concat([hv_calls, gr_calls, kol_call]).drop_duplicates(subset="npi")
+        all_today = all_today.sort_values("city").reset_index(drop=True)
 
-        for time_label, desc, pool, accent in [
-            ("Morning  ·  9:00 AM",   "High Value — defend Rx share",       hv_calls, "#003DA5"),
-            ("Afternoon  ·  1:00 PM", "Growth — GLP-1 / SGLT2 opportunity", gr_calls, "#34C759"),
-            ("End of Day  ·  4:30 PM","KOL engagement",                     kol_call, "#FF9500"),
-        ]:
-            if len(pool)==0: continue
-            st.html(f"""<div style="margin:14px 0 6px;font-size:0.7rem;font-weight:700;
-                color:#6E6E73;text-transform:uppercase;letter-spacing:0.1em">
-                {time_label} &nbsp;<span style="color:#AEAEB2;font-weight:400">·  {desc}</span></div>""")
-            cols = st.columns(len(pool))
-            for col, (_, row) in zip(cols, pool.iterrows()):
-                col.html(_call_card(row, accent))
+        for stop_i, (_, row) in enumerate(all_today.iterrows()):
+            npi        = str(row.get("npi",""))
+            seg        = row.get("segment","")
+            sc_c       = SEG_COLORS.get(seg,"#8E8E93")
+            sc_bg      = SEG_BG.get(seg,"#F5F5F7")
+            status, detail, st_c, st_bg = call_due_status(row)
+            p_label, p_color, p_bg = priority_label(float(row.get("targeting_score",0)))
+            brief      = precall_brief(row)
+            kol_flag   = "  ·  KOL" if row.get("opinion_leader_payments",0)>0 else ""
+            already    = npi in st.session_state.called_npis
+            card_bg    = "#F0FDF4" if already else "#FFFFFF"
+            done_badge = ('<span style="background:#EDFBF1;color:#1A7A40;padding:2px 9px;'
+                         'border-radius:980px;font-size:0.63rem;font-weight:700">Called</span>'
+                         if already else "")
+
+            left, right = st.columns([5, 1])
+            with left:
+                st.html(f"""
+                <div style="background:{card_bg};border-radius:14px;padding:14px 16px;
+                            border-left:4px solid {p_color};
+                            box-shadow:0 2px 8px rgba(0,0,0,0.05);margin-bottom:4px">
+                  <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+                    <span style="font-size:0.62rem;font-weight:700;color:#8E8E93">
+                      STOP {stop_i+1}
+                    </span>
+                    <span style="background:{p_bg};color:{p_color};padding:2px 9px;
+                      border-radius:980px;font-size:0.63rem;font-weight:700">{p_label}</span>
+                    <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;
+                      border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
+                    {done_badge}
+                  </div>
+                  <div style="font-size:0.92rem;font-weight:700;color:#1D1D1F">
+                    Dr {row.get("last_name","")}, {str(row.get("first_name",""))[:1]}.
+                    <span style="font-weight:400;color:#8E8E93;font-size:0.75rem">
+                      {row.get("credential","") or ""}{kol_flag}
+                    </span>
+                  </div>
+                  <div style="font-size:0.72rem;color:#6E6E73;margin-top:2px">
+                    {str(row.get("specialty",""))[:35]} &nbsp;·&nbsp;
+                    {str(row.get("city","")).title()}, {row.get("state","")}
+                    &nbsp;·&nbsp; <span style="color:{st_c};font-weight:600">{status} — {detail}</span>
+                  </div>
+                  <div style="margin-top:10px;padding:9px 12px;background:#F5F7FF;
+                              border-radius:9px;font-size:0.72rem;color:#374151;line-height:1.6">
+                    <span style="font-weight:700;color:#003DA5">Pre-call brief: </span>{brief}
+                  </div>
+                </div>""")
+            with right:
+                btn_label = "Called" if already else "Mark Called"
+                if st.button(btn_label, key=f"call_{npi}_{stop_i}",
+                             disabled=already,
+                             use_container_width=True):
+                    st.session_state.called_npis.add(npi)
+                    st.rerun()
 
         st.markdown("---")
 
-        # ── Opportunities: Growth HCPs not called in 30+ days ─────────────
+        # ── Opportunities: Growth HCPs not contacted in 30+ days ──────────
         st.markdown('<div class="sec">Opportunities — Growth HCPs Not Contacted in 30+ Days</div>',
                     unsafe_allow_html=True)
         st.html("""<div style="font-size:0.74rem;color:#6E6E73;margin-bottom:0.8rem">
@@ -1235,6 +1320,7 @@ if role == "Sales Rep":
             for i, (_, row) in enumerate(opps.iterrows()):
                 days_since = int(row["_days_since"])
                 urgency    = "#FF3B30" if days_since > 60 else "#FF9500"
+                p_label, p_color, p_bg = priority_label(float(row.get("targeting_score",0)))
                 with o_cols[i % 3]:
                     st.html(f"""
                     <div style="background:#FFFFFF;border-radius:14px;padding:13px 15px;
@@ -1253,7 +1339,7 @@ if role == "Sales Rep":
                         → {recommended_action(row)}
                       </div>
                       <div style="font-size:0.63rem;color:#8E8E93;margin-top:3px">
-                        Growth segment · Score {row.get("targeting_score",0):.3f}
+                        Growth segment · {p_label}
                       </div>
                     </div>""")
         else:
@@ -1288,15 +1374,18 @@ if role == "Sales Rep":
         if show_kol:
             hcp_view = hcp_view[hcp_view["opinion_leader_payments"]>0]
 
-        hcp_view["_status"] = hcp_view.apply(lambda r: call_due_status(r)[0], axis=1)
-        hcp_view["_days"]   = hcp_view["npi"].apply(lambda n: (now - sim_last_call(n)).days)
-        hcp_view["_action"] = hcp_view.apply(recommended_action, axis=1)
+        hcp_view["_status"]   = hcp_view.apply(lambda r: call_due_status(r)[0], axis=1)
+        hcp_view["_days"]     = hcp_view["npi"].apply(lambda n: (now - sim_last_call(n)).days)
+        hcp_view["_action"]   = hcp_view.apply(recommended_action, axis=1)
+        hcp_view["_priority"] = hcp_view["targeting_score"].apply(
+            lambda s: priority_label(float(s))[0])
+        hcp_view["_called"]   = hcp_view["npi"].apply(
+            lambda n: "Yes" if str(n) in st.session_state.called_npis else "—")
 
         disp = hcp_view[["last_name","first_name","specialty","city","segment",
-                          "targeting_score","_status","_days","_action"]].copy().head(100)
+                          "_priority","_status","_days","_called","_action"]].copy().head(100)
         disp.columns = ["Last","First","Specialty","City","Segment",
-                        "Score","Call Status","Days Since Visit","Recommended Action"]
-        disp["Score"] = disp["Score"].apply(lambda x: f"{x:.3f}")
+                        "Priority","Call Status","Days Since Visit","Called Today","Next Action"]
         disp.index = range(1, len(disp)+1)
         st.dataframe(disp, use_container_width=True, hide_index=False)
 
@@ -1319,103 +1408,103 @@ if role == "Sales Rep":
             sc_c     = SEG_COLORS.get(seg,"#8E8E93")
             sc_bg    = SEG_BG.get(seg,"#F5F5F7")
             status, detail, st_c, st_bg = call_due_status(pr)
-            p1, p2, p3 = st.columns(3)
-            with p1:
-                st.html(f"""
-                <div style="background:#FFFFFF;border-radius:14px;padding:16px;
-                            box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-                  <div style="font-size:1rem;font-weight:700;color:#1D1D1F">
-                    Dr {pr.get("last_name","")}, {str(pr.get("first_name",""))[:1]}.
-                    {pr.get("credential","") or ""}
+            p_label, p_color, p_bg = priority_label(float(pr.get("targeting_score",0)))
+            fills    = int(pr.get("fills_2022",0) or 0)
+            growth   = float(pr.get("yoy_growth_pct",0) or 0)
+            pay      = float(pr.get("total_payment_usd",0) or 0)
+            op       = float(pr.get("opinion_leader_payments",0) or 0)
+            brief    = precall_brief(pr)
+            days_ago = int((now - sim_last_call(pr.get("npi",0))).days)
+            npi_str  = str(pr.get("npi",""))
+            called   = npi_str in st.session_state.called_npis
+
+            # Card + pre-call brief
+            st.html(f"""
+            <div style="background:#FFFFFF;border-radius:14px;padding:16px 18px;
+                        border-left:4px solid {p_color};
+                        box-shadow:0 2px 8px rgba(0,0,0,0.06);margin-bottom:10px">
+              <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                <span style="background:{p_bg};color:{p_color};padding:2px 9px;
+                  border-radius:980px;font-size:0.63rem;font-weight:700">{p_label}</span>
+                <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;
+                  border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
+                <span style="background:{st_bg};color:{st_c};padding:2px 9px;
+                  border-radius:980px;font-size:0.63rem;font-weight:700">{status} — {detail}</span>
+                {"<span style='background:#FFF8ED;color:#CC7700;padding:2px 9px;border-radius:980px;font-size:0.63rem;font-weight:700'>KOL</span>" if op>0 else ""}
+              </div>
+              <div style="font-size:1rem;font-weight:700;color:#1D1D1F">
+                Dr {pr.get("last_name","")}, {str(pr.get("first_name",""))[:1]}.
+                {pr.get("credential","") or ""}
+              </div>
+              <div style="font-size:0.73rem;color:#6E6E73;margin:3px 0 10px">
+                {pr.get("specialty","")} &nbsp;·&nbsp;
+                {str(pr.get("city","")).title()}, {pr.get("state","")}
+                &nbsp;·&nbsp; Last visit: {days_ago} days ago
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:12px">
+                <div style="background:#F5F7FF;border-radius:9px;padding:10px 12px">
+                  <div style="font-size:0.62rem;color:#8E8E93;font-weight:600;
+                              text-transform:uppercase;letter-spacing:0.08em">Prescriptions</div>
+                  <div style="font-size:1rem;font-weight:800;color:#1D1D1F;margin-top:2px">
+                    {fills:,}
                   </div>
-                  <div style="font-size:0.75rem;color:#6E6E73;margin:4px 0">
-                    {pr.get("specialty","")}
+                  <div style="font-size:0.65rem;color:{'#34C759' if growth>0 else '#FF3B30'};font-weight:600">
+                    {growth:+.1f}% vs last year
                   </div>
-                  <div style="font-size:0.72rem;color:#8E8E93">
-                    {str(pr.get("city","")).title()}, {pr.get("state","")}
+                </div>
+                <div style="background:#F5F7FF;border-radius:9px;padding:10px 12px">
+                  <div style="font-size:0.62rem;color:#8E8E93;font-weight:600;
+                              text-transform:uppercase;letter-spacing:0.08em">KOL Engagement</div>
+                  <div style="font-size:1rem;font-weight:800;color:#1D1D1F;margin-top:2px">
+                    ${pay:,.0f}
                   </div>
-                  <div style="display:flex;gap:6px;margin-top:10px;flex-wrap:wrap">
-                    <span style="background:{sc_bg};color:{sc_c};padding:3px 10px;
-                      border-radius:980px;font-size:0.65rem;font-weight:700">{seg}</span>
-                    <span style="background:{st_bg};color:{st_c};padding:3px 10px;
-                      border-radius:980px;font-size:0.65rem;font-weight:700">{status}</span>
-                    {"<span style='background:#FFF8ED;color:#CC7700;padding:3px 10px;border-radius:980px;font-size:0.65rem;font-weight:700'>KOL</span>" if pr.get("opinion_leader_payments",0)>0 else ""}
+                  <div style="font-size:0.65rem;color:#8E8E93">
+                    {"Active KOL — speaker / advisory" if op>0 else "No engagement history"}
                   </div>
-                  <div style="margin-top:12px;font-size:0.78rem;color:#003DA5;font-weight:600">
-                    → {recommended_action(pr)}
+                </div>
+                <div style="background:#F5F7FF;border-radius:9px;padding:10px 12px">
+                  <div style="font-size:0.62rem;color:#8E8E93;font-weight:600;
+                              text-transform:uppercase;letter-spacing:0.08em">Next Action</div>
+                  <div style="font-size:0.78rem;font-weight:700;color:#003DA5;margin-top:4px;
+                              line-height:1.4">
+                    {recommended_action(pr)}
                   </div>
-                </div>""")
-            with p2:
-                st.html(f"""
-                <div style="background:#FFFFFF;border-radius:14px;padding:16px;
-                            box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-                  <div style="font-size:0.62rem;font-weight:700;color:#8E8E93;
-                              text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">
-                    Prescribing Profile
-                  </div>
-                  <div style="display:flex;flex-direction:column;gap:8px">
-                    <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">2022 Rx Fills</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        {int(pr.get("fills_2022",0)):,}
-                      </span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">YoY Growth</span>
-                      <span style="font-size:0.73rem;font-weight:700;
-                        color:{'#34C759' if pr.get('yoy_growth_pct',0)>0 else '#FF3B30'}">
-                        {pr.get("yoy_growth_pct",0):+.1f}%
-                      </span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">Volume Decile</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        {int(pr.get("volume_decile",0))}/10
-                      </span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">Growth Decile</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        {int(pr.get("growth_decile",0))}/10
-                      </span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">Targeting Score</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#003DA5">
-                        {pr.get("targeting_score",0):.3f}
-                      </span>
-                    </div>
-                  </div>
-                </div>""")
-            with p3:
+                </div>
+              </div>
+              <div style="padding:10px 14px;background:#F0F4FF;border-radius:9px;
+                          font-size:0.73rem;color:#374151;line-height:1.65">
+                <span style="font-weight:700;color:#003DA5">Pre-call brief: </span>{brief}
+              </div>
+            </div>""")
+
+            if not called:
+                if st.button("Mark as Called", key=f"profile_call_{npi_str}",
+                             use_container_width=False):
+                    st.session_state.called_npis.add(npi_str)
+                    st.rerun()
+            else:
+                st.success("Called today — logged.")
+
+            p3 = None  # suppress unused reference below
+            with st.expander("Full engagement history"):
                 pay = float(pr.get("total_payment_usd",0) or 0)
                 op  = float(pr.get("opinion_leader_payments",0) or 0)
                 pc  = int(pr.get("payment_count",0) or 0)
                 st.html(f"""
                 <div style="background:#FFFFFF;border-radius:14px;padding:16px;
                             box-shadow:0 2px 8px rgba(0,0,0,0.06)">
-                  <div style="font-size:0.62rem;font-weight:700;color:#8E8E93;
-                              text-transform:uppercase;letter-spacing:0.1em;margin-bottom:10px">
-                    Engagement & KOL
-                  </div>
                   <div style="display:flex;flex-direction:column;gap:8px">
                     <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">Total Payments</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        ${pay:,.0f}
-                      </span>
+                      <span style="font-size:0.73rem;color:#374151">Total Industry Payments</span>
+                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">${pay:,.0f}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between">
-                      <span style="font-size:0.73rem;color:#374151">KOL / Speaker Fees</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        ${op:,.0f}
-                      </span>
+                      <span style="font-size:0.73rem;color:#374151">Speaker / Advisory Fees</span>
+                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">${op:,.0f}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between">
                       <span style="font-size:0.73rem;color:#374151">Payment Events</span>
-                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">
-                        {pc}
-                      </span>
+                      <span style="font-size:0.73rem;font-weight:700;color:#1D1D1F">{pc}</span>
                     </div>
                     <div style="display:flex;justify-content:space-between">
                       <span style="font-size:0.73rem;color:#374151">Last Visit</span>
