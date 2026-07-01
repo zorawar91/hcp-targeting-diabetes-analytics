@@ -1722,8 +1722,14 @@ if role == "Sales Rep":
     st.stop()
 
 
+_planner_label = {
+    "Area Manager":     "Area Planner",
+    "Regional Manager": "Regional View",
+    "Head of Sales":    "Executive View",
+}.get(role, "Rep Planner")
+
 tab6, tab1, tab2, tab3, tab4, tab5, tab7, tab8, tab9 = st.tabs([
-    "Rep Planner",
+    _planner_label,
     "Call List",
     "Market Intelligence",
     "Territory Map",
@@ -2550,36 +2556,6 @@ with tab5:
 
 # US regions for Area / Regional views
 with tab6:
-
-    # ── Role selector ──────────────────────────────────────────────────────────
-    st.html("""
-    <div style="background:#FFFFFF;border-radius:14px;padding:1rem 1.4rem;
-                margin-bottom:1rem;box-shadow:0 2px 8px rgba(0,0,0,0.05)">
-      <div style="font-size:0.65rem;font-weight:700;color:#8E8E93;
-                  text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.5rem">
-        Select Your Role — planning horizon and geography adapt automatically
-      </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <span style="background:#EBF5FF;color:#003DA5;padding:3px 12px;border-radius:980px;
-                     font-size:0.7rem;font-weight:700;border:1px solid #B3D7FF">
-          👤 Sales Rep → Daily · Weekly · Monthly · 1 state
-        </span>
-        <span style="background:#FFF8ED;color:#CC7700;padding:3px 12px;border-radius:980px;
-                     font-size:0.7rem;font-weight:700;border:1px solid #FFE4B2">
-          👥 Area Manager → Weekly · Monthly · Quarterly · 1 region
-        </span>
-        <span style="background:#F5F0FF;color:#7B2FBE;padding:3px 12px;border-radius:980px;
-                     font-size:0.7rem;font-weight:700;border:1px solid #DDD0FF">
-          🏢 Regional Manager → Monthly · Quarterly · Multi-region
-        </span>
-        <span style="background:#EDFBF1;color:#1A7A35;padding:3px 12px;border-radius:980px;
-                     font-size:0.7rem;font-weight:700;border:1px solid #C3F2D0">
-          🎯 Head of Sales → Quarterly · National
-        </span>
-      </div>
-    </div>""")
-
-    st.markdown("<div style='height:0.3rem'></div>", unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════════════════
     # AREA / REGIONAL / HOS PLANNER (Sales Rep handled above with st.stop())
