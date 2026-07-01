@@ -478,6 +478,24 @@ st.markdown("""
     border-color: rgba(255,255,255,0.18) !important;
   }
 
+  /* Sidebar expander — keep dark on toggle */
+  .stSidebar [data-testid="stExpander"],
+  .stSidebar [data-testid="stExpander"] summary,
+  .stSidebar [data-testid="stExpander"] details > summary,
+  .stSidebar .streamlit-expanderHeader {
+    background: rgba(255,255,255,0.06) !important;
+    color: #EBEBF5 !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    border-radius: 8px !important;
+  }
+  .stSidebar [data-testid="stExpander"] summary:hover,
+  .stSidebar .streamlit-expanderHeader:hover {
+    background: rgba(255,255,255,0.10) !important;
+  }
+  .stSidebar [data-testid="stExpander"] svg {
+    fill: #EBEBF5 !important;
+  }
+
   /* ── KPI metric cards ── */
   div[data-testid="metric-container"] {
     background: #FFFFFF; border-radius: 14px; padding: 1.1rem 1.3rem;
