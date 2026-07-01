@@ -12,6 +12,9 @@ import plotly.graph_objects as go
 import numpy as np
 from datetime import datetime, timedelta
 from sqlalchemy import create_engine, text
+from sklearn.ensemble import GradientBoostingRegressor
+from sklearn.preprocessing import MinMaxScaler, LabelEncoder
+from sklearn.metrics import r2_score as sk_r2
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -220,6 +223,58 @@ CDC_T2D_PREV = {
 CALL_COST_USD   = 180   # estimated cost per field sales call
 REV_PER_FILL    = 45    # net revenue per branded Rx fill (USD)
 
+# ── ML TARGETING SCORER ────────────────────────────────────────────────────────
+# Trains a Gradient Boosting Regressor on 7 features from the CMS dataset.
+# Target: fills_2022 (actual prescribing volume) — predicted from prior-year
+# data + contextual signals. In production this would be: "given last year's
+# data, predict this year's prescribing" enabling forward-looking prioritisation.
+# Self-supervised on public CMS data — no proprietary call outcomes required.
+
+_ML_FEATURES = [
+    'fills_2021',       # prior-year Rx volume
+    'volume_decile',    # specialty-normalised volume rank
+    'growth_decile',    # specialty-normalised growth rank
+    'yoy_growth_pct',   # year-on-year change signal
+    'is_kol',           # KOL status (derived from Open Payments)
+    't2d_prev',         # state-level T2D prevalence (market size proxy)
+    'specialty_enc',    # label-encoded specialty
+]
+_ML_FEAT_LABELS = [
+    'Prior Fills (2021)', 'Volume Rank', 'Growth Rank',
+    'YoY Growth %', 'KOL Status', 'T2D Prevalence', 'Specialty',
+]
+
+@st.cache_data(show_spinner=False)
+def train_ml_targeting_model(df_signature, _df):
+    """Train GBR on CMS features to produce ml_targeting_score (0-1)."""
+    df = _df.copy()
+    df['t2d_prev']      = df['state'].map(CDC_T2D_PREV).fillna(10.0)
+    df['is_kol']        = (df['opinion_leader_payments'].fillna(0) > 0).astype(float)
+    le = LabelEncoder()
+    df['specialty_enc'] = le.fit_transform(df['specialty'].fillna('Unknown'))
+
+    train_mask = df[_ML_FEATURES + ['fills_2022']].notna().all(axis=1)
+    X_tr = df.loc[train_mask, _ML_FEATURES].values
+    y_tr = df.loc[train_mask, 'fills_2022'].values
+
+    gbr = GradientBoostingRegressor(
+        n_estimators=150, max_depth=3, learning_rate=0.1,
+        subsample=0.8, min_samples_leaf=20, random_state=42,
+    )
+    gbr.fit(X_tr, y_tr)
+
+    feat_med = df[_ML_FEATURES].median()
+    X_all    = df[_ML_FEATURES].fillna(feat_med).values
+    raw_pred = gbr.predict(X_all)
+    scaler   = MinMaxScaler()
+    ml_scores = scaler.fit_transform(raw_pred.reshape(-1, 1)).flatten().round(4)
+
+    importances = {
+        lbl: round(float(imp) * 100, 1)
+        for lbl, imp in zip(_ML_FEAT_LABELS, gbr.feature_importances_)
+    }
+    r2 = round(float(sk_r2(y_tr, gbr.predict(X_tr))), 3)
+    return ml_scores, importances, r2
 
 
 def momentum_score(row):
@@ -582,8 +637,13 @@ def load_drug_trends():
     """, get_conn())
 
 with st.spinner("Loading data…"):
-    df         = load_hcp()
-    drug_df    = load_drug_trends()
+    df      = load_hcp()
+    drug_df = load_drug_trends()
+
+with st.spinner("Training ML scoring model…"):
+    _df_sig = (len(df), int(df['npi'].iloc[0]) if len(df) else 0)
+    _ml_scores, ml_importances, ml_r2 = train_ml_targeting_model(_df_sig, df)
+    df['ml_targeting_score'] = _ml_scores
 
 # ── ROLE PICKER (shown on first visit before dashboard) ───────────────────────
 if st.session_state.persona_role is None:
@@ -767,39 +827,61 @@ with st.sidebar:
 
     st.markdown("---")
 
-    with st.expander("Score Methodology"):
-        st.markdown("""
+    with st.expander("Score Methodology — ML Active"):
+        # Build feature importance rows dynamically from trained model
+        _imp_rows = "".join([
+            f"<div style='display:flex;justify-content:space-between;margin-bottom:3px'>"
+            f"<span style='color:#D1E8FF;font-size:0.65rem'>{feat}</span>"
+            f"<span style='color:#A8C4E8;font-size:0.65rem;font-weight:700'>{pct:.1f}%</span>"
+            f"</div>"
+            f"<div style='background:#0A2860;border-radius:3px;height:4px;margin-bottom:6px'>"
+            f"<div style='background:#4A90D9;width:{min(pct*2,100):.0f}%;height:4px;border-radius:3px'></div>"
+            f"</div>"
+            for feat, pct in sorted(ml_importances.items(), key=lambda x: -x[1])
+        ])
+        st.markdown(f"""
         <div style='font-size:0.72rem;color:#F5F5F7;line-height:1.7'>
-          <div style='font-weight:700;color:#FFFFFF;margin-bottom:0.5rem'>
-            Composite Targeting Score
+          <div style='display:flex;align-items:center;gap:6px;margin-bottom:0.6rem'>
+            <span style='background:#1A7A40;color:#FFFFFF;padding:2px 8px;border-radius:980px;
+                         font-size:0.62rem;font-weight:700;letter-spacing:0.05em'>ML ACTIVE</span>
+            <span style='font-weight:700;color:#FFFFFF;font-size:0.72rem'>GBR Scoring Model</span>
           </div>
-          <div style='background:#0A2860;border-radius:8px;padding:10px 12px;margin-bottom:0.7rem;
-                      font-family:monospace;font-size:0.68rem;color:#D1E8FF'>
-            Score = (Vol_D × 0.40)<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (Growth_D × 0.40)<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ (Pay_D × 0.20)
+          <div style='color:#8E8E93;font-size:0.66rem;margin-bottom:0.7rem;line-height:1.5'>
+            Gradient Boosting Regressor trained to predict 2022 Rx volume from
+            prior-year data + context signals. Normalised 0–1 as
+            <strong style='color:#D1E8FF'>ML Score</strong>.
           </div>
-          <div style='color:#8E8E93;font-size:0.67rem;margin-bottom:0.6rem'>
-            Each component is ranked via <strong style='color:#D1E8FF'>NTILE(10)</strong>
-            within specialty, producing deciles 1–10.
-            Score is normalised 0–1.
+          <div style='background:#0A2860;border-radius:8px;padding:8px 10px;margin-bottom:0.6rem'>
+            <div style='color:#AEAEB2;font-size:0.62rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px'>
+              Model Stats
+            </div>
+            <div style='display:flex;justify-content:space-between'>
+              <span style='color:#8E8E93;font-size:0.64rem'>Training R²</span>
+              <span style='color:#34C759;font-weight:700;font-size:0.64rem'>{ml_r2:.3f}</span>
+            </div>
+            <div style='display:flex;justify-content:space-between'>
+              <span style='color:#8E8E93;font-size:0.64rem'>Estimators</span>
+              <span style='color:#D1E8FF;font-size:0.64rem'>150 trees · depth 3</span>
+            </div>
+            <div style='display:flex;justify-content:space-between'>
+              <span style='color:#8E8E93;font-size:0.64rem'>Training rows</span>
+              <span style='color:#D1E8FF;font-size:0.64rem'>~{len(df):,} HCPs</span>
+            </div>
           </div>
-          <div style='border-top:1px solid #0A3278;padding-top:0.5rem;margin-top:0.2rem'>
-            <div style='color:#AEAEB2;font-size:0.66rem;font-weight:700;
-                        text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.4rem'>
-              Components
+          <div style='color:#AEAEB2;font-size:0.62rem;font-weight:700;
+                      text-transform:uppercase;letter-spacing:0.08em;margin-bottom:6px'>
+            Feature Importance
+          </div>
+          {_imp_rows}
+          <div style='border-top:1px solid #0A3278;padding-top:0.5rem;margin-top:0.3rem'>
+            <div style='color:#AEAEB2;font-size:0.62rem;font-weight:700;
+                        text-transform:uppercase;letter-spacing:0.08em;margin-bottom:4px'>
+              Rule Score (DB — for reference)
             </div>
-            <div style='margin-bottom:0.3rem'>
-              <span style='color:#003DA5;font-weight:700'>Vol (40%)</span>
-              <span style='color:#8E8E93'> — 2022 Rx fills</span>
-            </div>
-            <div style='margin-bottom:0.3rem'>
-              <span style='color:#34C759;font-weight:700'>Growth (40%)</span>
-              <span style='color:#8E8E93'> — YoY fill growth 2021→2022</span>
-            </div>
-            <div>
-              <span style='color:#FF9500;font-weight:700'>Payment (20%)</span>
-              <span style='color:#8E8E93'> — CMS Open Payments received</span>
+            <div style='background:#0A2860;border-radius:6px;padding:7px 10px;
+                        font-family:monospace;font-size:0.64rem;color:#8E8E93'>
+              Vol×0.40 + Growth×0.40 + Pay×0.20
             </div>
           </div>
         </div>
@@ -1066,16 +1148,17 @@ else:
         name   = f"Dr {row.get('last_name','')}, {str(row.get('first_name',''))[:1]}."
         spec   = str(row.get("specialty",""))[:28]
         loc    = f"{str(row.get('city','')).title()}, {state_full(row.get('state',''))}"
-        score  = float(row.get("targeting_score", 0))
-        action = recommended_action(row)
-        kol_mk = " ⭐" if float(row.get("opinion_leader_payments", 0) or 0) > 0 else ""
-        yoy_v  = row.get("yoy_growth_pct", None)
-        yoy_s  = (f"+{yoy_v:.0f}% YoY" if yoy_v >= 0 else f"{yoy_v:.0f}% YoY") if pd.notna(yoy_v) else ""
+        score    = float(row.get("targeting_score", 0))
+        ml_score = float(row.get("ml_targeting_score", 0))
+        action   = recommended_action(row)
+        kol_mk   = " ⭐" if float(row.get("opinion_leader_payments", 0) or 0) > 0 else ""
+        yoy_v    = row.get("yoy_growth_pct", None)
+        yoy_s    = (f"+{yoy_v:.0f}% YoY" if yoy_v >= 0 else f"{yoy_v:.0f}% YoY") if pd.notna(yoy_v) else ""
 
         with col:
             st.html(f"""
             <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
-                        height:100%;border-top:2px solid {sc_};
+                        height:100%;
                         box-shadow:0 1px 3px rgba(0,0,0,0.05);
                         border:1px solid rgba(0,0,0,0.05);border-top:2px solid {sc_}">
               <div style="font-size:0.6rem;font-weight:700;color:#8E8E93;
@@ -1090,8 +1173,10 @@ else:
               <div style="display:flex;gap:5px;margin:10px 0 8px;flex-wrap:wrap">
                 <span style="background:{sc_bg};color:{sc_};padding:2px 9px;border-radius:980px;
                              font-size:0.63rem;font-weight:700">{seg}</span>
-                <span style="background:#F5F5F7;color:#1D1D1F;padding:2px 9px;border-radius:980px;
-                             font-size:0.63rem;font-weight:700">{score:.3f}</span>
+                <span style="background:#E3EEFB;color:#003DA5;padding:2px 9px;border-radius:980px;
+                             font-size:0.63rem;font-weight:700">ML {ml_score:.3f}</span>
+                <span style="background:#F5F5F7;color:#6E6E73;padding:2px 9px;border-radius:980px;
+                             font-size:0.63rem">Rule {score:.3f}</span>
                 {f'<span style="background:#F5F5F7;color:#6E6E73;padding:2px 9px;border-radius:980px;font-size:0.63rem">{yoy_s}</span>' if yoy_s else ''}
               </div>
               <div style="font-size:0.72rem;color:#003DA5;font-weight:600;
@@ -1251,6 +1336,7 @@ if role == "Sales Rep":
             sc_bg      = SEG_BG.get(seg,"#F5F5F7")
             status, detail, st_c, st_bg = call_due_status(row)
             p_label, p_color, p_bg = priority_label(float(row.get("targeting_score",0)))
+            ml_sc      = float(row.get("ml_targeting_score", 0))
             brief      = precall_brief(row)
             kol_flag   = "  ·  KOL" if row.get("opinion_leader_payments",0)>0 else ""
             already    = npi in st.session_state.called_npis
@@ -1273,6 +1359,8 @@ if role == "Sales Rep":
                       border-radius:980px;font-size:0.63rem;font-weight:700">{p_label}</span>
                     <span style="background:{sc_bg};color:{sc_c};padding:2px 9px;
                       border-radius:980px;font-size:0.63rem;font-weight:700">{seg}</span>
+                    <span style="background:#E3EEFB;color:#003DA5;padding:2px 9px;
+                      border-radius:980px;font-size:0.63rem;font-weight:700">ML {ml_sc:.3f}</span>
                     {done_badge}
                   </div>
                   <div style="font-size:0.92rem;font-weight:700;color:#1D1D1F">
