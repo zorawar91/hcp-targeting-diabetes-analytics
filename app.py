@@ -1131,17 +1131,18 @@ st.html(f"""
 </div>
 """)
 
-# ── TODAY'S PRIORITIES ─────────────────────────────────────────────────────────
-st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
-st.markdown('<div class="sec">Today\'s Top 5 — Highest Priority Diabetes Prescribers to Contact</div>',
-            unsafe_allow_html=True)
+# ── TODAY'S PRIORITIES (Sales Rep only — tactical field view) ─────────────────
+if role == "Sales Rep":
+ st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+ st.markdown('<div class="sec">Today\'s Top 5 — Highest Priority Diabetes Prescribers to Contact</div>',
+             unsafe_allow_html=True)
 
-if len(filt) == 0:
-    st.info("No HCPs match your current filters.")
-else:
-    top5 = filt.head(5)
-    cols = st.columns(5)
-    for i, (col, (_, row)) in enumerate(zip(cols, top5.iterrows())):
+ if len(filt) == 0:
+     st.info("No HCPs match your current filters.")
+ else:
+     top5 = filt.head(5)
+     cols = st.columns(5)
+     for i, (col, (_, row)) in enumerate(zip(cols, top5.iterrows())):
         seg    = row.get("segment", "Deprioritise")
         sc_    = SEG_COLORS.get(seg, "#8E8E93")
         sc_bg  = SEG_BG.get(seg, "#F5F5F7")
