@@ -1,4 +1,4 @@
-# HCP Targeting & Brand Performance Analytics — Diabetes Portfolio
+# HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 
 A production-grade commercial analytics platform for a diabetes drug portfolio, built on publicly available CMS Medicare data. Surfaces actionable HCP prioritisation, territory intelligence, and brand performance insights across five sales personas — from field rep to Head of Sales.
 

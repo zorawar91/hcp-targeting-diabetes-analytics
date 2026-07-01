@@ -1,5 +1,5 @@
 """
-HCP Targeting & Brand Performance Analytics — Diabetes
+HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 Commercial Intelligence Platform
 Stack: Python · PostgreSQL · Streamlit · Plotly
 Run:  python3 -m streamlit run app.py
@@ -650,7 +650,7 @@ if st.session_state.persona_role is None:
     st.markdown("""
     <div style='text-align:center;padding:3rem 0 2rem'>
       <div style='font-size:0.75rem;font-weight:700;color:#003DA5;text-transform:uppercase;
-                  letter-spacing:0.15em;margin-bottom:0.6rem'>HCP Targeting & Brand Performance Analytics</div>
+                  letter-spacing:0.15em;margin-bottom:0.6rem'>HCP Targeting & Commercial Intelligence</div>
       <div style='font-size:2rem;font-weight:700;color:#001F5B;letter-spacing:-0.03em;margin-bottom:0.4rem'>
         Select your role to continue
       </div>
@@ -942,7 +942,7 @@ st.markdown(f"""
     <div style='flex:1'>
       <div style='font-size:1.3rem;font-weight:700;color:#001F5B;
                   letter-spacing:-0.02em;line-height:1.1'>
-        HCP Targeting &amp; Brand Performance Analytics
+        HCP Targeting &amp; Commercial Intelligence — Diabetes Portfolio
       </div>
       <div style='font-size:0.78rem;color:#4B6A96;margin-top:3px'>
         {terr_state}{terr_city} &nbsp;·&nbsp; {terr_spec} &nbsp;·&nbsp; {datetime.now().strftime('%d %B %Y')}

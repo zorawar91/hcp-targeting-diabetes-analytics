@@ -1,5 +1,5 @@
 PLATFORM SCOPE & PRODUCTION CRM NOTES
-HCP Targeting & Brand Performance Analytics — Diabetes
+HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 ======================================================
 
 What this prototype demonstrates vs. a production Salesforce / Veeva deployment
