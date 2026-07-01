@@ -1722,6 +1722,268 @@ if role == "Sales Rep":
     st.stop()
 
 
+# ── TOP 10 ACTION CARDS (AM / RM / HOS only) ──────────────────────────────────
+if role in ("Area Manager", "Regional Manager", "Head of Sales"):
+    _now_ac = datetime.now()
+    _hv_ac  = filt[filt["segment"] == "High Value"]
+    _gr_ac  = filt[filt["segment"] == "Growth"]
+    _kol_ac = filt[filt["opinion_leader_payments"].fillna(0) > 0]
+    _gap_ac = filt[
+        (filt["opinion_leader_payments"].fillna(0) > 0) &
+        (filt["yoy_growth_pct"].fillna(0) < -3)
+    ]
+    _ne_ac  = filt[
+        (filt["fills_2021"].fillna(0) <= 50) &
+        (filt["fills_2022"].fillna(0) >= 20) &
+        (filt["growth_decile"].fillna(0) >= 8)
+    ]
+    _hv_decline_ac = _hv_ac[_hv_ac["yoy_growth_pct"].fillna(0) < -5]
+    _hv_at_risk_rev = int(_hv_decline_ac["fills_2022"].fillna(0).sum() * 45 * 0.15)
+
+    def _days_since(npi):
+        return (_now_ac - sim_last_call(npi)).days
+
+    _hv_overdue_ac = _hv_ac[_hv_ac["npi"].apply(lambda n: _days_since(n) > 28)]
+    _hv_cov_rate   = round(
+        (len(_hv_ac) - len(_hv_overdue_ac)) / max(len(_hv_ac), 1) * 100
+    )
+
+    if role == "Area Manager":
+        _rep_names_ac = {0:"A. Smith",1:"J. Johnson",2:"K. Williams",3:"M. Brown",4:"L. Davis"}
+        _hv_ac2 = _hv_ac.copy()
+        _hv_ac2["_rep"] = _hv_ac2["npi"].apply(lambda n: _rep_names_ac[int(n) % 5])
+        _hv_ac2["_overdue"] = _hv_ac2["npi"].apply(lambda n: _days_since(n) > 28)
+        _overdue_by_rep = _hv_ac2.groupby("_rep")["_overdue"].sum().sort_values(ascending=False)
+        _worst_rep      = _overdue_by_rep.index[0] if len(_overdue_by_rep) else "—"
+        _worst_rep_cnt  = int(_overdue_by_rep.iloc[0]) if len(_overdue_by_rep) else 0
+        _abt_break      = _gr_ac[_gr_ac["targeting_score"] >= 0.65]
+        _cold_ac        = filt[filt["npi"].apply(lambda n: _days_since(n) > 90)]
+        _top_uncalled   = _hv_overdue_ac.iloc[0] if len(_hv_overdue_ac) else None
+        _all_rep_cov = {}
+        for rn, rgrp in _hv_ac2.groupby("_rep"):
+            _all_rep_cov[rn] = round((~rgrp["_overdue"]).sum() / max(len(rgrp),1)*100)
+        _at_risk_reps = {r:c for r,c in _all_rep_cov.items() if c < 60}
+
+        _actions_ac = [
+            {"n":1,"urgency":"red",
+             "title":"Overdue HV Accounts",
+             "metric":f"{len(_hv_overdue_ac)} HCPs",
+             "sub":f"Past 28-day cadence — immediate rep dispatch required"},
+            {"n":2,"urgency":"red",
+             "title":"Rep Requiring Intervention",
+             "metric":f"{_worst_rep}",
+             "sub":f"{_worst_rep_cnt} overdue HV contacts — review call log today"},
+            {"n":3,"urgency":"red",
+             "title":"KOL Engagement Gaps",
+             "metric":f"{len(_gap_ac)} KOLs",
+             "sub":"Advisory payments active but Rx declining >3% — competitor risk"},
+            {"n":4,"urgency":"amber",
+             "title":"Reps Below Coverage Threshold",
+             "metric":f"{len(_at_risk_reps)} rep{'s' if len(_at_risk_reps)!=1 else ''}",
+             "sub":f"Coverage <60% of HV cadence — coaching conversation needed"},
+            {"n":5,"urgency":"amber",
+             "title":"Revenue at Risk",
+             "metric":f"~${_hv_at_risk_rev:,.0f}",
+             "sub":f"{len(_hv_decline_ac)} HV HCPs with >5% Rx decline — protect accounts"},
+            {"n":6,"urgency":"amber",
+             "title":"About to Break Through",
+             "metric":f"{len(_abt_break)} Growth HCPs",
+             "sub":"Score ≥0.65 — one strong visit from High Value segment"},
+            {"n":7,"urgency":"blue",
+             "title":"New Entrant Opportunity",
+             "metric":f"{len(_ne_ac)} HCPs",
+             "sub":"Low base 2021, rapid acceleration 2022 — capture before competitors"},
+            {"n":8,"urgency":"blue",
+             "title":"HV Coverage Rate",
+             "metric":f"{_hv_cov_rate}%",
+             "sub":f"of High Value HCPs contacted within 28-day cadence"},
+            {"n":9,"urgency":"blue",
+             "title":"Cold Accounts",
+             "metric":f"{len(_cold_ac)} HCPs",
+             "sub":"No contact in >90 days — risk of losing prescribing habit"},
+            {"n":10,"urgency":"blue",
+             "title":"Active KOL Relationships",
+             "metric":f"{len(_kol_ac)} KOLs",
+             "sub":f"{len(_gap_ac)} flagged at risk · {len(_kol_ac)-len(_gap_ac)} healthy"},
+        ]
+
+    elif role == "Regional Manager":
+        _state_yoy = (
+            filt.groupby("state")["yoy_growth_pct"].mean().sort_values()
+        )
+        _worst_state = state_full(_state_yoy.index[0]) if len(_state_yoy) else "—"
+        _worst_yoy   = round(float(_state_yoy.iloc[0]), 1) if len(_state_yoy) else 0
+        _best_state  = state_full(_state_yoy.index[-1]) if len(_state_yoy) else "—"
+        _best_yoy    = round(float(_state_yoy.iloc[-1]), 1) if len(_state_yoy) else 0
+        _hv_churn_ac = _hv_ac[_hv_ac["yoy_growth_pct"].fillna(0) < -10]
+        _hv_ov_by_state = (
+            _hv_overdue_ac.groupby("state").size().sort_values(ascending=False)
+        )
+        _worst_cov_state = state_full(_hv_ov_by_state.index[0]) if len(_hv_ov_by_state) else "—"
+        _worst_cov_cnt   = int(_hv_ov_by_state.iloc[0]) if len(_hv_ov_by_state) else 0
+        _state_t2d = {s: CDC_T2D_PREV.get(s.upper()[:2], 10.0) for s in filt["state"].unique()}
+        _state_hcp_cnt = filt.groupby("state").size()
+        _t2d_gap = {
+            s: (_state_t2d.get(s,10) / max(_state_hcp_cnt.get(s,1), 1))
+            for s in filt["state"].unique()
+        }
+        _ws_state = state_full(max(_t2d_gap, key=_t2d_gap.get)) if _t2d_gap else "—"
+
+        _actions_ac = [
+            {"n":1,"urgency":"red",
+             "title":"Declining State Market",
+             "metric":f"{_worst_state}: {_worst_yoy:+.1f}% YoY",
+             "sub":"Lowest average Rx growth across territory — AM intervention required"},
+            {"n":2,"urgency":"red",
+             "title":"HV Coverage Gap by State",
+             "metric":f"{_worst_cov_state}: {_worst_cov_cnt} overdue",
+             "sub":"Highest concentration of overdue High Value HCPs — escalate to AM"},
+            {"n":3,"urgency":"red",
+             "title":"KOL Engagement Gaps",
+             "metric":f"{len(_gap_ac)} KOLs flagged",
+             "sub":"Advisory-paid KOLs with declining Rx — active competitor capture risk"},
+            {"n":4,"urgency":"red",
+             "title":"HV Churn Risk",
+             "metric":f"{len(_hv_churn_ac)} HCPs",
+             "sub":"High Value accounts with >10% Rx decline — revenue protection priority"},
+            {"n":5,"urgency":"amber",
+             "title":"White Space Priority",
+             "metric":f"{_ws_state}",
+             "sub":"Highest T2D burden relative to HCP coverage — growth opportunity"},
+            {"n":6,"urgency":"amber",
+             "title":"Revenue at Risk (Region)",
+             "metric":f"~${_hv_at_risk_rev:,.0f}",
+             "sub":f"{len(_hv_decline_ac)} declining HV HCPs × estimated Rx value"},
+            {"n":7,"urgency":"amber",
+             "title":"New Entrant Pipeline",
+             "metric":f"{len(_ne_ac)} HCPs",
+             "sub":"Rapidly accelerating prescribers — allocate rep time before competitors"},
+            {"n":8,"urgency":"blue",
+             "title":"Best Performing State",
+             "metric":f"{_best_state}: {_best_yoy:+.1f}% YoY",
+             "sub":"Benchmark this territory's approach — replicate across region"},
+            {"n":9,"urgency":"blue",
+             "title":"Regional HV Coverage Rate",
+             "metric":f"{_hv_cov_rate}%",
+             "sub":"HV HCPs contacted within 28-day cadence across Southwest"},
+            {"n":10,"urgency":"blue",
+             "title":"Active KOL Portfolio",
+             "metric":f"{len(_kol_ac)} KOLs",
+             "sub":f"{len(_gap_ac)} at risk · {len(_kol_ac)-len(_gap_ac)} healthy · {len(_ne_ac)} new entrants"},
+        ]
+
+    else:  # Head of Sales
+        _state_yoy_hos = filt.groupby("state")["yoy_growth_pct"].mean().sort_values()
+        _reg_map = {s: r for r, ss in US_REGIONS.items() for s in ss}
+        filt_copy = filt.copy()
+        filt_copy["_region"] = filt_copy["state"].map(_reg_map).fillna("Other")
+        _reg_yoy = filt_copy.groupby("_region")["yoy_growth_pct"].mean().sort_values()
+        _worst_reg = _reg_yoy.index[0]  if len(_reg_yoy) else "—"
+        _worst_ryoy= round(float(_reg_yoy.iloc[0]),1) if len(_reg_yoy) else 0
+        _best_reg  = _reg_yoy.index[-1] if len(_reg_yoy) else "—"
+        _best_ryoy = round(float(_reg_yoy.iloc[-1]),1) if len(_reg_yoy) else 0
+        _top_hcp   = _hv_decline_ac.iloc[0] if len(_hv_decline_ac) else None
+        _top_name  = (f"Dr {_top_hcp.get('last_name','—')}" if _top_hcp is not None else "None flagged")
+        _top_yoy   = (round(float(_top_hcp.get("yoy_growth_pct",0)),1) if _top_hcp is not None else 0)
+        _prescribers_2022 = int((filt["fills_2022"].fillna(0) > 0).sum())
+        _prescribers_2021 = int((filt["fills_2021"].fillna(0) > 0).sum())
+        _pscr_delta = _prescribers_2022 - _prescribers_2021
+        _ws_state_hos_map = {
+            s: CDC_T2D_PREV.get(s.upper()[:2], 10.0) / max(int((filt["state"]==s).sum()),1)
+            for s in filt["state"].unique()
+        }
+        _ws_state_hos = state_full(max(_ws_state_hos_map, key=_ws_state_hos_map.get)) if _ws_state_hos_map else "—"
+        _hv_churn_hos = _hv_ac[_hv_ac["yoy_growth_pct"].fillna(0) < -10]
+
+        _actions_ac = [
+            {"n":1,"urgency":"red",
+             "title":"Region Needing Intervention",
+             "metric":f"{_worst_reg}: {_worst_ryoy:+.1f}% YoY",
+             "sub":"Lowest average Rx growth nationally — executive escalation warranted"},
+            {"n":2,"urgency":"red",
+             "title":"Franchise Accounts at Risk",
+             "metric":f"{len(_hv_decline_ac)} HV HCPs",
+             "sub":"High Value prescribers with >5% Rx decline — top accounts at stake"},
+            {"n":3,"urgency":"red",
+             "title":"Top Account in Decline",
+             "metric":_top_name,
+             "sub":f"YoY growth {_top_yoy:+.1f}% — highest-value HCP showing downward trend"},
+            {"n":4,"urgency":"red",
+             "title":"National Revenue at Risk",
+             "metric":f"~${_hv_at_risk_rev:,.0f}",
+             "sub":"Estimated from HV decline × avg fill value — protect before Q-end"},
+            {"n":5,"urgency":"amber",
+             "title":"KOL Engagement Gaps",
+             "metric":f"{len(_gap_ac)} nationally",
+             "sub":"Advisory-paid KOLs with declining Rx — competitor capture in progress"},
+            {"n":6,"urgency":"amber",
+             "title":"Prescriber Base Trend",
+             "metric":f"{_pscr_delta:+,} vs prior year",
+             "sub":f"{_prescribers_2022:,} active prescribers — {'growing' if _pscr_delta >= 0 else 'contracting'} base"},
+            {"n":7,"urgency":"amber",
+             "title":"HV Churn Risk",
+             "metric":f"{len(_hv_churn_hos)} HCPs",
+             "sub":"High Value accounts with >10% decline — highest churn probability tier"},
+            {"n":8,"urgency":"blue",
+             "title":"New Entrant Pipeline",
+             "metric":f"{len(_ne_ac)} HCPs",
+             "sub":"Accelerating low-base prescribers — next cohort of HV accounts"},
+            {"n":9,"urgency":"blue",
+             "title":"Best Performing Region",
+             "metric":f"{_best_reg}: {_best_ryoy:+.1f}% YoY",
+             "sub":"Benchmark region — replicate targeting approach nationally"},
+            {"n":10,"urgency":"blue",
+             "title":"Top White Space Market",
+             "metric":_ws_state_hos,
+             "sub":"Highest T2D burden relative to HCP penetration — growth opportunity"},
+        ]
+
+    # ── Render action cards (2 rows × 5) ─────────────────────────────────────
+    st.markdown("<div style='height:1rem'></div>", unsafe_allow_html=True)
+    _role_scope = {"Area Manager":"Texas Territory","Regional Manager":"Southwest Region","Head of Sales":"National"}.get(role,"")
+    st.markdown(f'<div class="sec">Top 10 Priority Actions — {_role_scope}</div>',
+                unsafe_allow_html=True)
+
+    _URGENCY_STYLE = {
+        "red":   ("#FF3B30", "#FFF0EF", "#CC2200"),
+        "amber": ("#FF9500", "#FFF8ED", "#B45309"),
+        "blue":  ("#003DA5", "#E3EEFB", "#003DA5"),
+    }
+
+    for _row_start in [0, 5]:
+        _cols_ac = st.columns(5)
+        for _ci, _act in enumerate(_actions_ac[_row_start:_row_start+5]):
+            _bc, _bg, _tc = _URGENCY_STYLE[_act["urgency"]]
+            with _cols_ac[_ci]:
+                st.html(f"""
+                <div style="background:#FFFFFF;border-radius:14px;padding:14px 16px;
+                            height:100%;min-height:140px;
+                            box-shadow:0 1px 3px rgba(0,0,0,0.05);
+                            border:1px solid rgba(0,0,0,0.05);
+                            border-top:3px solid {_bc}">
+                  <div style="font-size:0.58rem;font-weight:700;color:#8E8E93;
+                              text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px">
+                    Action #{_act['n']}
+                  </div>
+                  <div style="background:{_bg};color:{_tc};padding:2px 8px;
+                              border-radius:980px;font-size:0.62rem;font-weight:700;
+                              display:inline-block;margin-bottom:8px">
+                    {_act['metric']}
+                  </div>
+                  <div style="font-size:0.78rem;font-weight:700;color:#1D1D1F;
+                              line-height:1.3;margin-bottom:6px">
+                    {_act['title']}
+                  </div>
+                  <div style="font-size:0.66rem;color:#6E6E73;line-height:1.45">
+                    {_act['sub']}
+                  </div>
+                </div>
+                """)
+        st.markdown("<div style='height:0.6rem'></div>", unsafe_allow_html=True)
+
+    st.markdown("<div style='height:0.5rem'></div>", unsafe_allow_html=True)
+
+# ── OUTER TABS ─────────────────────────────────────────────────────────────────
 _planner_label = {
     "Area Manager":     "Area Planner",
     "Regional Manager": "Regional View",
