@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 03_segmentation.sql
--- HCP Targeting & Brand Performance Analytics — Diabetes
+-- HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 -- Analysis layer: annual Rx volumes, YoY growth, decile rankings
 -- Run AFTER 02_transform.sql in psql or DBeaver (connected to postgres db)
 -- =============================================================================

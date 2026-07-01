@@ -1,6 +1,6 @@
 """
 load_data.py  (v2 — fast COPY version)
-HCP Targeting & Brand Performance Analytics — Diabetes
+HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 Loads CMS Part D, Open Payments, and NPPES data into PostgreSQL staging tables.
 Uses PostgreSQL COPY for fast bulk loading instead of row-by-row inserts.
 

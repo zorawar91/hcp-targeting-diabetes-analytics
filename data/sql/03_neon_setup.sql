@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 03_neon_setup.sql
--- HCP Targeting & Brand Performance Analytics — Diabetes
+-- HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 -- Run this on your Neon database BEFORE importing CSVs.
 -- Then import the two CSVs using the Neon dashboard or psql \COPY.
 -- =============================================================================

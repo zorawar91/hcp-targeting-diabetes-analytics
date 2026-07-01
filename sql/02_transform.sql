@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 02_transform.sql
--- HCP Targeting & Brand Performance Analytics — Diabetes
+-- HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 -- Builds the star schema from staging tables
 -- Run in DBeaver AFTER load_data.py completes
 -- =============================================================================

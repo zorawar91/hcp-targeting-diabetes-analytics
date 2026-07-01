@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 01_schema.sql
--- HCP Targeting & Brand Performance Analytics — Diabetes
+-- HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 -- Creates staging tables and the star schema
 -- Run this first in DBeaver against hcp_diabetes_db
 -- =============================================================================

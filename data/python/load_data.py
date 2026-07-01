@@ -1,6 +1,6 @@
 """
 load_data.py
-HCP Targeting & Brand Performance Analytics — Diabetes
+HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 Loads CMS Part D, Open Payments, and NPPES data into PostgreSQL staging tables.
 
 Run from terminal:

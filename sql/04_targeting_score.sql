@@ -1,6 +1,6 @@
 -- =============================================================================
 -- 04_targeting_score.sql
--- HCP Targeting & Brand Performance Analytics — Diabetes
+-- HCP Targeting & Commercial Intelligence — Diabetes Portfolio
 -- Composite targeting score, segment labels, final call-planning table
 -- Run AFTER 03_segmentation.sql
 -- =============================================================================
